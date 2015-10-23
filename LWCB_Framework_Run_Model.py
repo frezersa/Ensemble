@@ -52,10 +52,6 @@ parser.parse_args(namespace=data)
 config_file = ConfigParse(data.Config) #config_file is a class that stores all parameters
 model_run = data.ModelRun
 
-
-
-
-
 #= set inital working directory to repository root folder
 os.chdir(config_file.repository_directory)
 
@@ -66,33 +62,46 @@ os.chdir(config_file.repository_directory)
 
 #= spin up only
 if model_run == "Spinup":
-  print "\n===============creating spin up===================\n"
-  clean_up(model_directory,weather_data_directory,r_graphics_directory)
-  model_spinup(spinup_start_date,spinup_end_date,historical_capa_path,model_directory,use_capa,use_resrel,nudge_strmflws)
-  generate_analysis_graphs(forecast_date,spinup_start_date,model_directory,"NA","NA",r_script_directory,r_graphics_directory,r_script_analysis_resin,r_script_analysis_spl)
+    print "\n===============creating spin up===================\n"
+    clean_up(config_file.model_directory,
+           config_file.weather_data_directory,
+           config_file.r_graphics_directory)
+
+    model_spinup(config_file)
+    
+    generate_analysis_graphs(config_file,
+                            start_date = config_file.spinup_start_date)
   
-  if os.path.exists(os.path.join(os.path.dirname(repository_directory),"Model_Repository_spinup")):
-    shutil.rmtree(os.path.join(os.path.dirname(repository_directory),"Model_Repository_spinup"))
-  shutil.copytree(os.path.join(os.path.dirname(repository_directory),"Model_Repository"),os.path.join(os.path.dirname(repository_directory),"Model_Repository_spinup"),ignore=ignore_wxData)
+    if os.path.exists(os.path.join(os.path.dirname(config_file.repository_directory),"Model_Repository_spinup")):
+        shutil.rmtree(os.path.join(os.path.dirname(config_file.repository_directory),"Model_Repository_spinup"))
+        
+    shutil.copytree(os.path.join(os.path.dirname(config_file.repository_directory),"Model_Repository"),
+                               os.path.join(os.path.dirname(config_file.repository_directory),"Model_Repository_spinup"),
+                               ignore=ignore_wxData)
       
 
 
 # using previous spin up for default forecast
 elif model_run == "DefaultHindcast":
     print "\nusing previously run spin up & running default hindcast\n"
-    clean_up(model_directory,weather_data_directory,r_graphics_directory)
+    clean_up(config_file.model_directory,
+           config_file.weather_data_directory,
+           config_file.r_graphics_directory)
     
-    copy_resume("Model_Repository_spinup")
+    copy_resume(config_file,"Model_Repository_spinup")
     
-    model_hindcast(historical_start_date,historical_end_date,forecast_date,capa_start_hour,forecast_start_hour)
+    model_hindcast(config_file)
     
-    # generate r graphics for spl & resin analysis
-    generate_analysis_graphs(forecast_date,historical_start_date,model_directory,"NA","NA",r_script_directory,r_graphics_directory,r_script_analysis_resin,r_script_analysis_spl)
+    generate_analysis_graphs(config_file,
+                            start_date = config_file.historical_start_date)
     
     
-    if os.path.exists(os.path.join(os.path.dirname(repository_directory),"Model_Repository_hindcast")):
-      shutil.rmtree(os.path.join(os.path.dirname(repository_directory),"Model_Repository_hindcast"))
-    shutil.copytree(os.path.join(os.path.dirname(repository_directory),"Model_Repository"),os.path.join(os.path.dirname(repository_directory),"Model_Repository_hindcast"),ignore=ignore_wxData)
+    if os.path.exists(os.path.join(os.path.dirname(config_file.repository_directory),"Model_Repository_hindcast")):
+      shutil.rmtree(os.path.join(os.path.dirname(config_file.repository_directory),"Model_Repository_hindcast"))
+      
+    shutil.copytree(os.path.join(os.path.dirname(config_file.repository_directory),"Model_Repository"),
+                                os.path.join(os.path.dirname(config_file.repository_directory),"Model_Repository_hindcast"),
+                                ignore=ignore_wxData)
       
     
 elif model_run == "HindcastAdjust":
@@ -101,7 +110,7 @@ elif model_run == "HindcastAdjust":
     temp_toggle = "True"
     
     # while precip_toggle == "True" or temp_toggle == "True":
-    copy_resume("Model_Repository_spinup")
+    copy_resume(config_file,"Model_Repository_spinup")
     adjust_hindcast(precip_toggle,temp_toggle)
     
         
@@ -114,14 +123,24 @@ elif model_run == "HindcastAdjust":
       
 elif model_run == "Forecast":
     print "Running Forecast\n"
-    clean_up(config_file.model_directory,
-            config_file.weather_data_directory,
-            config_file.r_graphics_directory)
-    copy_resume("Model_Repository_hindcast_adjusted",config_file)
-    model_forecast(config_file)
+    # clean_up(config_file.model_directory,
+            # config_file.weather_data_directory,
+            # config_file.r_graphics_directory)
+            
+    # copy_resume(config_file,"Model_Repository_hindcast")
+    
+    # model_forecast(config_file)
     
     #generate plots
-    # generate_analysis_graphs(forecast_date,historical_start_date,model_directory,os.path.join(os.path.dirname(repository_directory),"Model_Repository/forecast/resin1-00.csv"),os.path.join(os.path.dirname(repository_directory),"Model_Repository/forecast/spl1-00.csv"),r_script_directory,r_graphics_directory,r_script_analysis_resin,r_script_analysis_spl,"2014-04-01","NA", os.path.join(os.path.dirname(repository_directory),"Model_Repository_hindcast_adjusted"))
+    generate_analysis_graphs(config_file,
+                             start_date = config_file.historical_start_date,
+                             resin = os.path.join(os.path.dirname(config_file.repository_directory),"Model_Repository/forecast/resin1-00.csv"),
+                             spl =  os.path.join(os.path.dirname(config_file.repository_directory),"Model_Repository/forecast/spl1-00.csv"),
+                             spinup = os.path.join(os.path.dirname(config_file.repository_directory),"Model_Repository_hindcast"))
+                             
+    # # generate_analysis_graphs(forecast_date,historical_start_date,model_directory,os.path.join(os.path.dirname(repository_directory),"Model_Repository/forecast/resin1-00.csv"),
+    # os.path.join(os.path.dirname(repository_directory),"Model_Repository/forecast/spl1-00.csv"),
+    # r_script_directory,r_graphics_directory,r_script_analysis_resin,r_script_analysis_spl,"2014-04-01","NA", os.path.join(os.path.dirname(repository_directory),"Model_Repository_hindcast_adjusted"))
     # generate_meteorlogical_graphs(r_script_directory,r_script_forecast,r_graphics_directory)
     # generate_ensemble_graphs(r_script_directory,r_script_ensemblegraphs,r_graphics_directory)
     # generate_dss(hecdss_vue_path,r_script_directory,hec_writer_script)
@@ -152,4 +171,3 @@ elif model_run == "RerunForecast":
 
 else:
     print "\noptions selected are not correct. please review configuration settings.\n"
-

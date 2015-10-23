@@ -162,7 +162,8 @@ class ConfigParse:
 
         
 
-def query_lwcb_db(start_date,end_date,use_capa,use_GEMTemps,use_resrel,nudge_strmflws):
+
+def query_lwcb_db(config_file,start_date,end_date):
     """
     query lwcb db & convert to required tb0 format. 
     
@@ -175,37 +176,99 @@ def query_lwcb_db(start_date,end_date,use_capa,use_GEMTemps,use_resrel,nudge_str
     
     print "Getting historical data from DB..."
     # res releases
-    if use_resrel == "True":
-      cmd = [rscript_path,os.path.join(r_script_directory,r_script_lwcb_query),r_script_directory,model_directory,"resrl","rel",start_date,end_date,lwcb_db_path,lwcb_station_resrel,nudge_strmflws]
+    if config_file.use_resrel == "True":
+      cmd = [config_file.rscript_path,
+            os.path.join(config_file.r_script_directory, config_file.r_script_lwcb_query),
+            config_file.r_script_directory, #1
+            config_file.model_directory,#2
+            "resrl","rel", #3,4
+            start_date, #5
+            end_date, #6
+            config_file.lwcb_db_path, #7
+            config_file.lwcb_station_resrel, #8
+            config_file.nudge_strmflws] #9
       subprocess.call(cmd,shell=True)
       
     # diversions
-    cmd = [rscript_path,os.path.join(r_script_directory,r_script_lwcb_query),r_script_directory,model_directory,"diver","diver",start_date,end_date,lwcb_db_path,lwcb_station_diver,nudge_strmflws]
+    cmd = [config_file.rscript_path,
+          os.path.join(config_file.r_script_directory, config_file.r_script_lwcb_query),
+          config_file.r_script_directory,
+          config_file.model_directory,
+          "diver","diver",
+          start_date,
+          end_date,
+          config_file.lwcb_db_path,
+          config_file.lwcb_station_diver,
+          config_file.nudge_strmflws]
     subprocess.call(cmd,shell=True)
      
     # levels
-    cmd = [rscript_path,os.path.join(r_script_directory,r_script_lwcb_query),r_script_directory,model_directory,"level","level",start_date,end_date,lwcb_db_path,lwcb_station_level,nudge_strmflws]
+    cmd = [config_file.rscript_path,
+          os.path.join(config_file.r_script_directory, config_file.r_script_lwcb_query),
+          config_file.r_script_directory,
+          config_file.model_directory,
+          "level","level",
+          start_date,
+          end_date,
+          config_file.lwcb_db_path,
+          config_file.lwcb_station_level,
+          config_file.nudge_strmflws]
     subprocess.call(cmd,shell=True)
     
-    
     # db precipitation if no capa
-    if use_capa == "False":  
+    if config_file.use_capa == "False":  
         # precipitation
-        cmd = [rscript_path,os.path.join(r_script_directory,r_script_lwcb_query),r_script_directory,model_directory,"raing","raing",start_date,end_date,lwcb_db_path,lwcb_station_precipitation,nudge_strmflws]
+        cmd = [config_file.rscript_path,
+              os.path.join(config_file.r_script_directory, config_file.r_script_lwcb_query),
+              config_file.r_script_directory,
+              config_file.model_directory,
+              "raing","raing",
+              start_date,
+              end_date,
+              config_file.lwcb_db_path,
+              config_file.lwcb_station_precipitation,
+              config_file.nudge_strmflws]
         subprocess.call(cmd,shell=True)
       
     # resin inflows
-    cmd = [rscript_path,os.path.join(r_script_directory,r_script_lwcb_query),r_script_directory,model_directory,"resrl","rin",start_date,end_date,lwcb_db_path,lwcb_station_resin,nudge_strmflws]
+    cmd = [config_file.rscript_path,
+          os.path.join(config_file.r_script_directory, config_file.r_script_lwcb_query),
+          config_file.r_script_directory,
+          config_file.model_directory,
+          "resrl","rin",
+          start_date,
+          end_date,
+          config_file.lwcb_db_path,
+          config_file.lwcb_station_resin,
+          config_file.nudge_strmflws]
     subprocess.call(cmd,shell=True)
     
 
     # stream flow
-    cmd = [rscript_path,os.path.join(r_script_directory,r_script_lwcb_query),r_script_directory,model_directory,"strfw","strfw",start_date,end_date,lwcb_db_path,lwcb_station_streamflow,nudge_strmflws]
+    cmd = [config_file.rscript_path,
+          os.path.join(config_file.r_script_directory, config_file.r_script_lwcb_query),
+          config_file.r_script_directory,
+          config_file.model_directory,
+          "strfw","strfw",
+          start_date,
+          end_date,
+          config_file.lwcb_db_path,
+          config_file.lwcb_station_streamflow,
+          config_file.nudge_strmflws]
     subprocess.call(cmd,shell=True)
       
     # temperature
-    if use_GEMTemps == "False":
-      cmd = [rscript_path,os.path.join(r_script_directory,r_script_lwcb_query),r_script_directory,model_directory,"tempg","tempg",start_date,end_date,lwcb_db_path,lwcb_station_temperature,nudge_strmflws]
+    if config_file.use_GEMTemps == "False":
+      cmd = [config_file.rscript_path,
+            os.path.join(config_file.r_script_directory, config_file.r_script_lwcb_query),
+            config_file.r_script_directory,
+            config_file.model_directory,
+            "tempg","tempg",
+            start_date,
+            end_date,
+            config_file.lwcb_db_path,
+            config_file.lwcb_station_temperature,
+            config_file.nudge_strmflws]
       subprocess.call(cmd,shell=True)
     
     
@@ -540,32 +603,40 @@ def query_ec_datamart_forecast(config_file):
       
        
     
-
-def query_ec_datamart_hindcast(start_date,capa_hour,repository_directory,scripts_directory):
+    # query_ec_datamart_hindcast(historical_start_date,capa_start_hour)
+    #def query_ec_datamart_hindcast(start_date,capa_hour,repository_directory,scripts_directory):
+def query_ec_datamart_hindcast(config_file):
     
     # capa data
     # always pull capa data
 
     # generate r2c from grib2
     print "Getting Precipitation Data /n"
-    cmd = ["python",os.path.join(repository_directory,scripts_directory,"CaPAUpdate.py"),"--RepoPath", grib_capa_repo, "--startHour",capa_hour,"--historicalStartDate",start_date]
+    cmd = ["python",
+          os.path.join(config_file.repository_directory, config_file.scripts_directory,"CaPAUpdate.py"),
+          "--RepoPath", config_file.grib_capa_repo,
+          "--startHour",config_file.capa_start_hour,
+          "--historicalStartDate",config_file.historical_start_date]
     subprocess.call(cmd,shell=True)
         
     #GEM Temperature Data
     print "Getting Temperature Data /n"
-    cmd = ["python",os.path.join(repository_directory,scripts_directory,"TemperatureUpdate.py"),"--RepoPath", grib_GEMTemps_repo]
+    cmd = ["python",
+          os.path.join(config_file.repository_directory, config_file.scripts_directory,"TemperatureUpdate.py"),
+          "--RepoPath", config_file.grib_GEMTemps_repo]
     subprocess.call(cmd,shell=True)
     
     #create YYYYMMDD_dif.r2c file from temperature file
     print "Calculating YYYYMMDD_dif.r2c file /n"
-    cmd = [rscript_path,os.path.join(repository_directory,scripts_directory,"tempdiff.R"),os.path.join(repository_directory,scripts_directory)]
+    cmd = [config_file.rscript_path,
+          os.path.join(config_file.repository_directory,config_file.scripts_directory,"tempdiff.R"),
+          os.path.join(config_file.repository_directory,config_file.scripts_directory)]
     subprocess.call(cmd,shell=True)
     
 
 
 
-def generate_distribution_event_file(start_date,forecast_date,repository_directory,scripts_directory,
-                                     resume_toggle="False",tbc_toggle="False"):
+def generate_distribution_event_file(config_file, resume_toggle = "False", tbc_toggle = "False"):
     """
     creates event file with :noeventstofollow set to 0. used to run distribution executables.
     
@@ -577,43 +648,52 @@ def generate_distribution_event_file(start_date,forecast_date,repository_directo
     # generate the historical event file from jan 1 up to yesterday of forecast start date. must supply "-fd" to ensure event file to follow name is correct. 
     # set the :noeventstofollow to 0.
     if resume_toggle == "True" and tbc_toggle == "True":
-      cmd = ["python",os.path.join(repository_directory,scripts_directory,"EventGenerator.py"),"-f",":noeventstofollow","0","-f",":resumflg","y","-f",":tbcflg","y","-fd",forecast_date,"-spinup","False",start_date]
+      cmd = ["python",
+            os.path.join(config_file.repository_directory, config_file.scripts_directory, "EventGenerator.py"),
+            "-f", ":noeventstofollow", "0",
+            "-f", ":resumflg", "y",
+            "-f", ":tbcflg", "y",
+            "-fd", config_file.forecast_date,
+            "-spinup", "False", config_file.historical_start_date]
       subprocess.call(cmd,shell=True)
     
     elif resume_toggle == "False" and tbc_toggle == "False":
-      cmd = ["python",os.path.join(repository_directory,scripts_directory,"EventGenerator.py"),"-f",":noeventstofollow","0","-f",":resumflg","n","-f",":tbcflg","n","-fd",forecast_date,"-spinup","False",start_date]
+      cmd = ["python",
+            os.path.join(config_file.repository_directory, config_file.scripts_directory, "EventGenerator.py"),
+            "-f", ":noeventstofollow", "0",
+            "-f", ":resumflg", "n",
+            "-f", ":tbcflg", "n",
+            "-fd", config_file.forecast_date,
+            "-spinup", "False", config_file.historical_start_date]
       subprocess.call(cmd,shell=True)
       
     elif resume_toggle == "True" and tbc_toggle == "False":
-      cmd = ["python",os.path.join(repository_directory,scripts_directory,"EventGenerator.py"),"-f",":noeventstofollow","0","-f",":resumflg","y","-f",":tbcflg","n","-fd",forecast_date,"-spinup","False",start_date]
+      cmd = ["python",
+            os.path.join(config_file.repository_directory, config_file.scripts_directory, "EventGenerator.py"),
+            "-f", ":noeventstofollow", "0",
+            "-f", ":resumflg", "y",
+            "-f", ":tbcflg", "n",
+            "-fd", config_file.forecast_date,
+            "-spinup", "False", config_file.historical_start_date]
       subprocess.call(cmd,shell=True)
       
     elif resume_toggle == "False" and tbc_toggle == "True":
-      cmd = ["python",os.path.join(repository_directory,scripts_directory,"EventGenerator.py"),"-f",":noeventstofollow","0","-f",":resumflg","n","-f",":tbcflg","y","-fd",forecast_date,"-spinup","False",start_date]
+      cmd = ["python",
+            os.path.join(config_file.repository_directory, config_file.scripts_directory, "EventGenerator.py"),
+            "-f", ":noeventstofollow", "0",
+            "-f", ":resumflg", "n",
+            "-f", ":tbcflg", "y",
+            "-fd", config_file.forecast_date,
+            "-spinup", "False", config_file.historical_start_date]
       subprocess.call(cmd,shell=True)
       
 
 
-def generate_model_event_files_hindcast(start_date,forecast_date,repository_directory,scripts_directory):
-    """
-    create watflood model event files for historic & forecast. identical to the file created by 
-    function generate_distribution_event_file() but with :noeventstofollow set to 1.
-    
-    update the historical event flag :resumflg to 'y'
-    """
-    
-    # usage: EventGenerator.py [-h] [-FS FORECASTSTART] [-f FLAG FLAG] YearStart [-fd forecastdates]
-    # generate the historical event file. must supply "-fd" to ensure event file to follow name is correct.
-    # set the :resumflg = y
-    cmd = ["python",os.path.join(repository_directory,scripts_directory,"EventGenerator.py"),"-f",":resumflg","y","-fd",forecast_date,"-spinup","False",start_date]
-    subprocess.call(cmd,shell=True)
-    
     
 
 def generate_model_event_files_forecast(config_file):
     """
-    create watflood model event files for historic & forecast. identical to the file created by 
-    function generate_distribution_event_file() but with :noeventstofollow set to 1.
+    create watflood model event files for historic & forecast. 
     
     update the historical event flag :resumflg to 'y'
     """
@@ -752,9 +832,9 @@ def generate_historic_files(start_date,repository_directory,scripts_directory):
    
 
     
-def calculate_distributed_data(use_GEMTemps="True",snow="True",moist="True",use_capa="True",repository_directory="C:",scripts_directory="script"):
+def calculate_distributed_data(config_file, snow, moist):
     """
-    run distribution models. tmp.exe, snw.exe & moist.exe are always run, ragment.exe only if no capa selected by
+    run distribution models. moist.exe, snw.exe are always run, ragmet.exe, tmp.exe only if no capa/ no GEMtemps selected by
     user in configuration file.
     
     executables must be run from the root of model directory.
@@ -765,30 +845,39 @@ def calculate_distributed_data(use_GEMTemps="True",snow="True",moist="True",use_
     initial_directory = os.getcwd()
     
     # change directory to root of model directory
-    os.chdir(os.path.join(repository_directory,model_directory))
+    os.chdir(os.path.join(config_file.repository_directory, config_file.model_directory))
     
-    ## run distribution executables
+    # run distribution executables
+    # ragmet
+    if config_file.use_capa != "True":
+        # ragment exe. no capa. using lwcb prepication.
+        cmd = [os.path.join(config_file.repository_directory,
+                            config_file.bin_directory,
+                            config_file.data_distribution_precipitation)]    
+        subprocess.call(cmd,shell=True)
+        
     # tmp exe
-    if use_GEMTemps != "True":
-      cmd = [os.path.join(repository_directory,bin_directory,data_distribution_temperature)]   
+    if config_file.use_GEMTemps != "True":
+      cmd = [os.path.join(config_file.repository_directory,
+                          config_file.bin_directory,
+                          config_file.data_distribution_temperature)]   
       subprocess.call(cmd,shell=True)
 	
-	## run distribution executables
     # snow exe
     if snow == "True":
-      cmd = [os.path.join(repository_directory,bin_directory,data_distribution_snow)]   
+      cmd = [os.path.join(config_file.repository_directory,
+                          config_file.bin_directory,
+                          config_file.data_distribution_snow)]   
       subprocess.call(cmd,shell=True)
 	
-	## run distribution executables
     # moist exe
     if moist == "True":
-      cmd = [os.path.join(repository_directory,bin_directory,data_distribution_moist)]   
+      cmd = [os.path.join(config_file.repository_directory,
+                          config_file.bin_directory,
+                          config_file.data_distribution_moist)]   
       subprocess.call(cmd,shell=True)
     
-    if use_capa != "True":
-        # ragment exe. no capa. using lwcb prepication.
-        cmd = [os.path.join(repository_directory,bin_directory,data_distribution_precipitation)]    
-        subprocess.call(cmd,shell=True)
+
 
     # reset directory to initial
     os.chdir(initial_directory)
@@ -843,11 +932,11 @@ def execute_watflood(config_file):
 
     
 
-def generate_spinup_event_files(start_date,end_date,repository_directory,scripts_directory):
+def generate_spinup_event_files(config_file,start_date,end_date):
     """
     event files specific to spin up. end date is provided as full date to end of last year to lwcb db. must be endYear0101.
     """
-    print "Generating Event Files \n" 
+    print "Generating Event Files" 
     #Parse Start and end dates
     start_date = datetime.datetime.strptime(start_date,"%Y/%m/%d")
     end_date = datetime.datetime.strptime(end_date,"%Y/%m/%d")
@@ -858,7 +947,10 @@ def generate_spinup_event_files(start_date,end_date,repository_directory,scripts
     #Execute if only a single year for spinup
     if start_year == end_year:
       event_start = str(start_year) + "/01/01"
-      cmd = ["python",os.path.join(repository_directory,scripts_directory,"EventGenerator.py"),"-fd","1900/01/01","-f",":noeventstofollow","0",event_start] #1900 is a dummy year that needs to be entered for the EventGenerator to work
+      cmd = ["python",
+            os.path.join(config_file.repository_directory, config_file.scripts_directory,"EventGenerator.py"),
+            "-fd","1900/01/01",
+            "-f",":noeventstofollow","0",event_start] #1900 is a dummy year that needs to be entered for the EventGenerator to work
       subprocess.call(cmd,shell=True)
       return #get out of function if single year
 
@@ -881,15 +973,28 @@ def generate_spinup_event_files(start_date,end_date,repository_directory,scripts
 
       #first event file
       if i == 0:
-        cmd = ["python",os.path.join(repository_directory,scripts_directory,"EventGenerator.py"),"-fd",pretty_eventstofollow,"-f",":noeventstofollow",str(len(eventstofollow)),event_start]
+        cmd = ["python",
+              os.path.join(config_file.repository_directory, config_file.scripts_directory,"EventGenerator.py"),
+              "-fd",pretty_eventstofollow,
+              "-f",":noeventstofollow",str(len(eventstofollow)),event_start]
         
       if i!= 0:
         #middle event files
         if event_year != (end_year):
-          cmd = ["python",os.path.join(repository_directory,scripts_directory,"EventGenerator.py"),"-fd",pretty_eventstofollow,"-f",":noeventstofollow","0",event_start,"-spinup","True"]
+          cmd = ["python",
+                os.path.join(config_file.repository_directory, config_file.scripts_directory,"EventGenerator.py"),
+                "-fd",pretty_eventstofollow,
+                "-f",":noeventstofollow","0",event_start,
+                "-spinup","True"]
+                
         #last event file
         if event_year == (end_year):
-          cmd = ["python",os.path.join(repository_directory,scripts_directory,"EventGenerator.py"),"-f",":noeventstofollow","0","-f",":tbcflg","y","-fd",event_start,"-spinup","True",event_start]
+          cmd = ["python",
+                os.path.join(config_file.repository_directory, config_file.scripts_directory,"EventGenerator.py"),
+                "-f",":noeventstofollow","0",
+                "-f",":tbcflg","y",
+                "-fd",event_start,
+                "-spinup","True",event_start]
           
       subprocess.call(cmd,shell=True)
      
@@ -915,7 +1020,7 @@ def generate_spinup_releases_file(start_date,end_date,repository_directory,scrip
 
 
         
-def generate_spinup_generic_files(start_date,end_date,repository_directory,scripts_directory):
+def generate_spinup_generic_files(config_file,start_date,end_date):
     """
     generates generic data files only for spin up. files are _ill.pt2/crs.pt2 & psm.pt2. generated from templates at /../lib/
     
@@ -928,12 +1033,17 @@ def generate_spinup_generic_files(start_date,end_date,repository_directory,scrip
     
     
     # generate crs.pt2, write to snow1 directory
-    cmd = ["python",os.path.join(repository_directory,scripts_directory,"GenericTemplateWritter.py"),"TEMPLATE_swe.r2c",os.path.join(model_directory,"snow1"),"swe.r2c",start_date]
+    cmd = ["python",
+          os.path.join(config_file.repository_directory, config_file.scripts_directory, "GenericTemplateWritter.py"),
+          "TEMPLATE_swe.r2c",
+          os.path.join(config_file.model_directory,"snow1"),"swe.r2c",start_date]
     subprocess.call(cmd,shell=True)
        
     # generate psm.pt2, write to moist directory
-    #cmd = ["python",os.path.join(repository_directory,scripts_directory,"GenericTemplateWritter.py"),"TEMPLATE_psm.pt2",os.path.join(model_directory,"moist"),"psm.pt2",start_date]
-    cmd = ["python",os.path.join(repository_directory,scripts_directory,"GenericTemplateWritter.py"),"TEMPLATE_gsm.r2c",os.path.join(model_directory,"moist"),"gsm.r2c",start_date]
+    cmd = ["python",
+          os.path.join(config_file.repository_directory,config_file.scripts_directory,"GenericTemplateWritter.py"),
+          "TEMPLATE_gsm.r2c",
+          os.path.join(config_file.model_directory,"moist"),"gsm.r2c",start_date]
     subprocess.call(cmd,shell=True)
 
 
@@ -977,14 +1087,14 @@ def clean_up(model_directory,weather_data_directory,r_graphics_directory):
     
 
     
-def spinup_capa(spinup_start_date,spinup_end_date,historical_capa_path,model_directory):
+def spinup_capa(config_file,spinup_start_date,spinup_end_date):
     """
     utilize historical capa data in model spinup.
     
     historical capa data is expected to be in r2c format. file signature must be YYYYMMDD_met.r2c.
     """
     
-    print "Copying CaPA Files to Spin up Directory"
+    print "Copying CaPA Files to Spin-up Directory"
     # convert user spinup dates to start from jan01. capa data in this format.
     start_year = int(spinup_start_date.split("/")[0])
     end_year = int(spinup_end_date.split("/")[0])
@@ -997,18 +1107,19 @@ def spinup_capa(spinup_start_date,spinup_end_date,historical_capa_path,model_dir
       start_date = str(Year) +"0101_met.r2c"
       
       # copy capa to model directory wpegr/radcl
-      shutil.copy(os.path.join(historical_capa_path,start_date), os.path.join(model_directory,"radcl"))
+      shutil.copy(os.path.join(config_file.historical_capa_path,start_date),
+                  os.path.join(config_file.model_directory,"radcl"))
     
     
     
-def spinup_GEMTemps(spinup_start_date,spinup_end_date,historical_GEMTemps_path,model_directory):
+def spinup_GEMTemps(config_file, spinup_start_date, spinup_end_date):
     """
     utilize historical capa data in model spinup.
     
     historical capa data is expected to be in r2c format. file signature must be YYYYMMDD_tem.r2c.
     """
     
-    print "Copying GEMTemps Files to Spin up Directory"
+    print "Copying GEMTemps Files to Spin-up Directory"
     # convert user spinup dates to start from jan01. capa data in this format.
     start_year = int(spinup_start_date.split("/")[0])
     end_year = int(spinup_end_date.split("/")[0])
@@ -1022,50 +1133,67 @@ def spinup_GEMTemps(spinup_start_date,spinup_end_date,historical_GEMTemps_path,m
       start_date_dif = str(Year) +"0101_dif.r2c"
       
       # copy capa to model directory wpegr/radcl
-      shutil.copy(os.path.join(historical_GEMTemps_path,start_date_tem), os.path.join(model_directory,"tempr"))
-      shutil.copy(os.path.join(historical_GEMTemps_path,start_date_dif), os.path.join(model_directory,"tempr"))
+      shutil.copy(os.path.join(config_file.historical_GEMTemps_path, start_date_tem),
+                  os.path.join(config_file.model_directory,"tempr"))
+      shutil.copy(os.path.join(config_file.historical_GEMTemps_path, start_date_dif),
+                  os.path.join(config_file.model_directory,"tempr"))
     
     
 
-def generate_analysis_graphs(forecast_date,historical_start_date,model_directory,resin,spl,r_script_directory,r_graphics_directory,r_script_analysis_resin,r_script_analysis_spl,start_date="NA",end_date="NA",spinup="False"):
+def generate_analysis_graphs(config_file,
+                              resin="NA",
+                              spl="NA",
+                              start_date="NA",
+                              end_date="NA",
+                              spinup="False"):
     """
-    generates R dailiy graphics based on output of model resin & spl png files. output to /diagnostic folder
+    generates R daily graphics based on output of model resin & spl png files. output to /diagnostic folder
     """
     print "Generating Deterministic inflow and streamflow plots..."
+    
     #= resin comparison graphic    
     # convert historical date from yyyy/mm/dd to yyyy-mm-dd
-    tmp = historical_start_date.split("/")
+    tmp = config_file.spinup_start_date.split("/")
     if start_date == "NA":
       start_date = "%s-%s-%s" %(tmp[0],tmp[1],tmp[2])
-    # rin.tb0 forecast file
-    tmp = forecast_date.split("/")
-    date_rin = "%s%s%s" % (tmp[0],tmp[1],tmp[2])
-    rin = os.path.join(model_directory,"resrl",date_rin + "_rin.tb0")
+
     # resin.csv
     if resin == "NA":
-      resin = os.path.join(model_directory,"results","resin.csv")
+      resin = os.path.join(config_file.model_directory,"results","resin.csv")
     spinup_resin = spinup
+    
     if not spinup =="False":
       spinup_resin = os.path.join(spinup,"wpegr","results","resin.csv")
-    cmd = [rscript_path,os.path.join(r_script_directory,r_script_analysis_resin),r_script_directory,r_graphics_directory,resin,start_date,end_date,spinup_resin]
+      
+    cmd = [config_file.rscript_path,
+          os.path.join(config_file.r_script_directory, config_file.r_script_analysis_resin),
+          config_file.r_script_directory,
+          config_file.r_graphics_directory,
+          resin,
+          start_date,
+          end_date,
+          spinup_resin]
     subprocess.call(cmd,shell=True)
       
     #= spl comparison graphic
     # convert historical date from yyyy/mm/dd to yyyy-mm-dd
-    tmp = historical_start_date.split("/")
+    tmp = config_file.spinup_start_date.split("/")
     if start_date == "NA":
       start_date = "%s-%s-%s" %(tmp[0],tmp[1],tmp[2])
-    # rin.tb0 forecast file
-    tmp = forecast_date.split("/")
-    date_str = "%s%s%s" % (tmp[0],tmp[1],tmp[2])
-    str = os.path.join(model_directory,"strfw",date_str + "_str.tb0")
+
     # spl.csv
     if spl == "NA":
-      spl = os.path.join(model_directory,"results","spl.csv")
+      spl = os.path.join(config_file.model_directory,"results","spl.csv")
     spinup_spl = spinup
     if not spinup =="False":
       spinup_spl = os.path.join(spinup,"wpegr","results","spl.csv")
-    cmd = [rscript_path,os.path.join(r_script_directory,r_script_analysis_spl),r_script_directory,r_graphics_directory,spl,start_date,end_date,spinup_spl]
+    cmd = [config_file.rscript_path,
+          os.path.join(config_file.r_script_directory,config_file.r_script_analysis_spl),
+          config_file.r_script_directory,
+          config_file.r_graphics_directory,
+          spl,
+          start_date,
+          end_date,spinup_spl]
     subprocess.call(cmd,shell=True)
     
     
@@ -1106,7 +1234,7 @@ def generate_meteorlogical_graphs(r_script_directory,r_script_forecast,r_graphic
       
 
 
-def copy_resume(source_dir,config_file): #source dir is the name of the folder where the results come from (ex. Model_Repository_Spinup)
+def copy_resume(config_file,source_dir): #source dir is the name of the folder where the results come from (ex. Model_Repository_Spinup)
     #get full path of source directories
     print "Copying resume files from " + source_dir + "...." + "\n"
     
@@ -1166,55 +1294,76 @@ def generate_dss(hecdss_vue_path,r_script_directory,hec_writer_script):
     
 
 # ===== main functions to run spinup & forecast
-def model_spinup(spinup_start_date,spinup_end_date,historical_capa_path,model_directory,use_capa,use_resrel,nudge_strmflws):
+  #model_spinup(spinup_start_date,spinup_end_date,historical_capa_path,model_directory,use_capa,use_resrel,nudge_strmflws)
+
+def model_spinup(config_file):
     # creates event files required
-    generate_spinup_event_files(spinup_start_date, spinup_end_date)
+    generate_spinup_event_files(config_file,
+                                config_file.spinup_start_date, 
+                                config_file.spinup_end_date)
     
     # create release file (not needed anymore, commented out)
     #generate_spinup_releases_file(spinup_start_date,spinup_end_date)
     
-    # generic files built from template for level/snow/moist
-    generate_spinup_generic_files(spinup_start_date,spinup_end_date)
+    # # generic files built from template for level/snow/moist
+    generate_spinup_generic_files(config_file,
+                                  config_file.spinup_start_date,
+                                  config_file.spinup_end_date)
     
     # query lwcb data
-    query_lwcb_db(spinup_start_date,spinup_end_date,use_capa = use_capa,use_GEMTemps=use_GEMTemps,use_resrel=use_resrel,nudge_strmflws=nudge_strmflws)
+    query_lwcb_db(config_file,
+                  config_file.spinup_start_date,
+                  config_file.spinup_end_date)
     
     # spinup using capa
-    if use_capa == "True":
-        spinup_capa(spinup_start_date,spinup_end_date,historical_capa_path,model_directory)
+    if config_file.use_capa == "True":
+        spinup_capa(config_file,
+                    config_file.spinup_start_date,
+                    config_file.spinup_end_date)
         
     # spinup using GEMTemps
-    if use_GEMTemps == "True":
-        spinup_GEMTemps(spinup_start_date,spinup_end_date,historical_GEMTemps_path,model_directory)
+    if config_file.use_GEMTemps == "True":
+        spinup_GEMTemps(config_file,
+                        config_file.spinup_start_date,
+                        config_file.spinup_end_date)
     
-    #= generate disributed data
-    calculate_distributed_data(use_GEMTemps=use_GEMTemps,snow="False",moist="False",use_capa=use_capa)
+    # generate distributed data
+    calculate_distributed_data(config_file,
+                               snow="False",
+                               moist="False",)
     
     # execute watflood
-    execute_watflood()
+    execute_watflood(config_file)
 
 
 
-    
-def model_hindcast(historical_start_date,historical_end_date,forecast_date,capa_start_hour,forecast_start_hour,):
+   #model_hindcast(historical_start_date,historical_end_date,forecast_date,capa_start_hour,forecast_start_hour)
+ 
+def model_hindcast(config_file):
     """
     default hindcast. 
     """
     
     # query lwcb data
-    query_lwcb_db(historical_start_date,historical_end_date,use_capa,use_GEMTemps,use_resrel,nudge_strmflws)
+    query_lwcb_db(config_file,
+                  start_date = config_file.historical_start_date,
+                  end_date = config_file.historical_end_date)
     
     # query ec_datamart
-    query_ec_datamart_hindcast(historical_start_date,capa_start_hour)
+    query_ec_datamart_hindcast(config_file)
     
     # generate watflood text files, initial event file used only for distrubtion executables.
-    generate_distribution_event_file(historical_start_date,forecast_date,"True","True")
+    generate_distribution_event_file(config_file,
+                                     resume_toggle = "True", 
+                                     tbc_toggle = "True")
       
     # calculate distribute temperature,snow & moisture. precipitation dependent upon if capa selected by user.
-    calculate_distributed_data(use_GEMTemps=use_GEMTemps,snow="False",moist="False",use_capa=use_capa)
+    calculate_distributed_data(config_file,
+                               snow="False",
+                               moist="False",)
       
     # execute watflood
-    execute_watflood()
+    execute_watflood(config_file)
     
 
     
@@ -1244,7 +1393,7 @@ def adjust_hindcast(precip_toggle,temp_toggle,repository_directory,scripts_direc
       subprocess.call(cmd,shell=True)
       
     # execute watflood
-    execute_watflood()
+    execute_watflood(config_file)
     
     #create plots
     generate_analysis_graphs(forecast_date,historical_start_date,model_directory,"NA","NA",r_script_directory,r_graphics_directory,r_script_analysis_resin,r_script_analysis_spl,"NA","NA","False")
@@ -1259,12 +1408,10 @@ def model_forecast(config_file):
     # generate forecast files
     generate_forecast_files(config_file)
     
-    # query ec_datamart**********************
-    # get all the forecasts and number them
+    # query ec_datamart
     query_ec_datamart_forecast(config_file)
       
     # move files to appropriate location within model directory.
-    # at moment this is only for forecast data
     update_model_folders(config_file)
       
     # overwrite event file for model run. includes historic and forecast**********************
