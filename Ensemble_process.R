@@ -25,7 +25,7 @@ source("rlib/LWSlib.R")
 
 #set directory paths
 forecast_directory<-paste0(script_directory,"/../forecast/")
-hindcast_directory<-paste0(script_directory,"/../../Model_Repository_hindcast_adjusted/")
+hindcast_directory<-paste0(script_directory,"/../../Model_Repository_hindcast/")
 output_directory<-paste0(script_directory,"/../diagnostic/")
 
 

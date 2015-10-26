@@ -31,6 +31,10 @@ cat(paste("4 - ",tem_forecast_file <- args[4]),"\n")
 #tem_forecast_file<-"C:/Test_Framework/EC_Operational_Framework/Model_Repository/wpegr/tempr/20141210_tem_1-00.r2c"
 cat(paste("5 - ",met_hindcast_file <- args[5]),"\n") 
 #met_hindcast_file<-"C:/Test_Framework/EC_Operational_Framework/Model_Repository_hindcast_adjusted/wpegr/radcl/Orig_20140101_met.r2c"
+cat(paste("6 - ",forecast_date <- as.Date(args[6])),"\n") 
+#met_hindcast_file<-"C:/Test_Framework/EC_Operational_Framework/Model_Repository_hindcast_adjusted/wpegr/radcl/Orig_20140101_met.r2c"
+
+
 
 shapefile_directory <-paste0(script_directory,"/../lib/shapefiles")
 source(paste0(script_directory,"/rlib/LWSlib.R"))
@@ -280,7 +284,7 @@ meanprecip<-vector()
 for(i in 0:20){
 
   # get forecast*******
-  todaydate<-format(Sys.Date(),"%Y%m%d")
+  todaydate<-format(forecast_date,"%Y%m%d")
   parentfolder<-paste0(script_directory,"/../wxData/met/")
   outputfolder<-paste0(script_directory,"/../diagnostic/")
   lines<-readLines(paste0(script_directory,"/../wxData/met/",todaydate,"_met_2-", formatC(i,width=2,format="d",flag="0"), ".r2c"))

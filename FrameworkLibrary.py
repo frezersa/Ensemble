@@ -21,6 +21,33 @@ def ignore_wxData(src_path,content):
      return []
 
 
+
+def ignorePath(path):
+  def ignoref(p, files):
+    return (f for f in files if os.abspath(os.path.join(p, f)) == path)
+  return ignoref
+  
+  
+def onerror(func, path, exc_info):
+    """
+    Error handler for ``shutil.rmtree``.
+
+    If the error is due to an access error (read only file)
+    it attempts to add write permission and then retries.
+
+    If the error is for another reason it re-raises the error.
+
+    Usage : ``shutil.rmtree(path, onerror=onerror)``
+    """
+    import stat
+    if not os.access(path, os.W_OK):
+        # Is the error an access error ?
+        os.chmod(path, stat.S_IWUSR)
+        func(path)
+    else:
+        raise
+        
+        
 def parse_configuration_file(configuration_file):
     """
     parse configuration file name:value into a dict.
@@ -1080,6 +1107,14 @@ def clean_up(model_directory,weather_data_directory,r_graphics_directory):
     files = glob.glob(path)
     for i in files:
         os.remove(i)
+        
+    # remove forecast csvs
+    path = os.path.join(os.path.dirname(model_directory),"forecast","*.*")
+    print path
+    files = glob.glob(path)
+    for i in files:
+        os.remove(i)
+        
     
     # create blank directories in model directory
     for i in directories:
@@ -1198,37 +1233,45 @@ def generate_analysis_graphs(config_file,
     
     
     
-def generate_ensemble_graphs(r_script_directory,r_script_ensemble,r_graphics_directory):
+def generate_ensemble_graphs(config_file):
     """
     generates R dailiy graphics based on output of model resin & spl png files. output to /diagnostic folder
     """
     
     print "generating probablistic data"
-    cmd = [rscript_path,os.path.join(r_script_directory,r_script_ensemble),r_script_directory]
+    cmd = [config_file.rscript_path,
+          os.path.join(config_file.r_script_directory,config_file.r_script_ensemblegraphs),
+          config_file.r_script_directory]
     #"rscript C:\Ensemble_Framework\EC_Operational_Framework\Model_Repository\scripts\Ensemble_plot.R"
     subprocess.call(cmd,shell=True)
     
 
     
-    
-def generate_meteorlogical_graphs(r_script_directory,r_script_forecast,r_graphics_directory,repository_directory,scripts_directory):
+
+def generate_meteorlogical_graphs(config_file):
     """
-    generates R dailiy graphics based on output of model resin & spl png files. output to /diagnostic folder
+    generates R daily graphics based on output of model resin & spl png files. output to /diagnostic folder
     """
     
 
     print "Generating meteorlogical plots..."
-    tmp = forecast_date.split("/")
+    tmp = config_file.forecast_date.split("/")
     date_str = "%s%s%s" % (tmp[0],tmp[1],tmp[2])
-    met_str_forecast = os.path.join(model_directory,"radcl",date_str + "_met_1-00.r2c")
-    tem_str_forecast = os.path.join(model_directory,"tempr",date_str + "_tem_1-00.r2c")
+    met_str_forecast = os.path.join(config_file.model_directory, "radcl", date_str + "_met_1-00.r2c")
+    tem_str_forecast = os.path.join(config_file.model_directory, "tempr", date_str + "_tem_1-00.r2c")
     
-    tmp = historical_start_date.split("/")
+    tmp = config_file.historical_start_date.split("/")
     start_date = "%s%s%s" %(tmp[0],tmp[1],tmp[2])
-    source_dir = os.path.join(os.path.dirname(repository_directory),"Model_Repository_hindcast_adjusted")
-    met_str_hindcast = os.path.join(source_dir,"wpegr","radcl","Orig_" + start_date + "_met.r2c")
+    source_dir = os.path.join(os.path.dirname(config_file.repository_directory), "Model_Repository_hindcast")
+    met_str_hindcast = os.path.join(source_dir, "wpegr", "radcl", start_date + "_met.r2c")
  
-    cmd = [rscript_path,os.path.join(r_script_directory,r_script_forecast),r_script_directory,r_graphics_directory,met_str_forecast,tem_str_forecast,met_str_hindcast]
+    cmd = [config_file.rscript_path, os.path.join(config_file.r_script_directory, config_file.r_script_forecast),
+            config_file.r_script_directory,
+            config_file.r_graphics_directory,
+            met_str_forecast,
+            tem_str_forecast,
+            met_str_hindcast,
+            config_file.forecast_date]
     subprocess.call(cmd,shell=True)
     
       
@@ -1294,16 +1337,12 @@ def generate_dss(hecdss_vue_path,r_script_directory,hec_writer_script):
     
 
 # ===== main functions to run spinup & forecast
-  #model_spinup(spinup_start_date,spinup_end_date,historical_capa_path,model_directory,use_capa,use_resrel,nudge_strmflws)
-
 def model_spinup(config_file):
     # creates event files required
     generate_spinup_event_files(config_file,
                                 config_file.spinup_start_date, 
                                 config_file.spinup_end_date)
     
-    # create release file (not needed anymore, commented out)
-    #generate_spinup_releases_file(spinup_start_date,spinup_end_date)
     
     # # generic files built from template for level/snow/moist
     generate_spinup_generic_files(config_file,
@@ -1337,7 +1376,6 @@ def model_spinup(config_file):
 
 
 
-   #model_hindcast(historical_start_date,historical_end_date,forecast_date,capa_start_hour,forecast_start_hour)
  
 def model_hindcast(config_file):
     """
