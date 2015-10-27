@@ -48,6 +48,103 @@ def onerror(func, path, exc_info):
         raise
         
         
+def CopyModEvent(mothership_dir,member_dir,keywords="NA"):
+    """
+    Function specifically for hydrological ensemble modelling. Copies event files to different 
+    member directory and changes paths of specified files back to the 'mothership' directory.
+    """
+    
+    mothership_path = os.path.dirname(mothership_dir)
+    mothership_files = os.listdir(mothership_dir)
+    
+    member_files = []
+    for file_name in mothership_files:
+        full_file_name = os.path.join(mothership_dir, file_name)
+        if (os.path.isfile(full_file_name)):
+          shutil.copy(full_file_name, member_dir) #copy files
+          member_files.append(os.path.join(member_dir,file_name)) #create list of copied files
+          
+    if keywords == "NA":
+       keywords = ["pointsoilmoisture", "pointprecip", "pointtemps", "streamflowdatafile", "reservoirinflowfile", "diversionflowfile",
+                  "snowcoursefile", "observedlakelevel", "initlakelevel", "griddedinitsnowweq", "griddedinitsoilmoisture", "griddedrainfile",
+                  "griddedtemperaturefile", "griddeddailydifference"]
+                  
+    #Go through each new event file and change path to mothership
+    for file_name in member_files:
+        Infile = open(file_name, 'rb')
+        table = [row.strip().split() for row in Infile]
+
+        for i, line in enumerate(table):
+            for flag in keywords:
+               if flag in line[0] and mothership_path not in line[1]:
+                  line[1] = os.path.join(mothership_path,line[1])
+                  
+        file = open(file_name,'w')
+        #write file
+        for i, line in enumerate(table):
+            for j, val in enumerate(line):
+                if j is 0:
+                    file.write(str(val.ljust(40)))
+                else:
+                    file.write(str(val) + " ")
+            file.write('\n')
+            
+            
+def CopyModResrl(mothership_dir,member_dir,template):
+    """
+    function to copy reservoir release files from the 'mothership' directory and change the 
+    coefficients (ie stage discharge curve) to be specific for the member calibration.
+    """
+
+    mothership_path = os.path.dirname(mothership_dir)
+    mothership_files = [s for s in os.listdir(mothership_dir) if 'rel' in s]
+
+    member_files = []
+    for file_name in mothership_files:
+        full_file_name = os.path.join(mothership_dir, file_name)
+        if (os.path.isfile(full_file_name)):
+          shutil.copy(full_file_name, member_dir) #copy files
+          member_files.append(os.path.join(member_dir,file_name)) #create list of copied files
+
+    keywords = ["coeff1","coeff2","coeff3","coeff4","coeff5"]
+    
+    #get template data
+    template_file = open(template, 'rb')
+    template_table = [row.strip().split() for row in template_file]
+    template_line = []
+    for flag in keywords:
+        for t in template_table:
+            if flag in t[0]:
+                template_line.append(t) #line from template
+          
+    #Go through each new resrl file
+    for file_name in member_files:
+        Infile = open(file_name, 'rb')
+        table = [row.strip().split() for row in Infile]
+        
+        file = open(file_name,'w')
+        flag_data = "False"
+        for i, line in enumerate(table):
+            for newline in template_line: #check for template match
+                if newline[0] in line[0]:
+                    line = newline
+                    
+            if flag_data == "True":
+                file.write("                    ")
+                for j, val in enumerate(line):
+                        file.write(str(val.ljust(13)))
+                file.write('\n')
+            else:
+                 for j, val in enumerate(line):
+                    if j is 0:
+                        file.write(str(val.ljust(20)))
+                    else:
+                        file.write(str(val.ljust(13)))
+                 file.write('\n')
+                
+            if "endHeader" in line[0]:
+                flag_data = "True"
+            
 def parse_configuration_file(configuration_file):
     """
     parse configuration file name:value into a dict.
@@ -946,13 +1043,15 @@ def update_model_folders(config_file):
 
     
 
-def execute_watflood(config_file):
+def execute_watflood(config_file,calibration_directory):
     """
     execute waterflood model, current directory must be model directory.
     """
 
     # must change to root of model directory
-    os.chdir(os.path.join(config_file.repository_directory,config_file.model_directory))    
+    os.chdir(calibration_directory)  
+    print calibration_directory
+
     
     cmd = [os.path.join(config_file.repository_directory,config_file.bin_directory,config_file.watflood_executable)]
     subprocess.call(cmd,shell=True)
@@ -1110,7 +1209,6 @@ def clean_up(model_directory,weather_data_directory,r_graphics_directory):
         
     # remove forecast csvs
     path = os.path.join(os.path.dirname(model_directory),"forecast","*.*")
-    print path
     files = glob.glob(path)
     for i in files:
         os.remove(i)

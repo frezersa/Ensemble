@@ -57,7 +57,6 @@ os.chdir(config_file.repository_directory)
 
     
     
-    
 ## ===== run operational framework
 
 #= spin up 
@@ -87,21 +86,31 @@ if model_run == "Spinup":
                         config_file.spinup_end_date)
     calculate_distributed_data(config_file,
                                snow="False",
-                               moist="False",)
+                               moist="False")
     
-    # execute watflood
-    execute_watflood(config_file)
+    CopyModEvent("C:\W\A_MS\Model_Repository\wpegr\event",
+                  "C:\W\B\Model_Repository\wpegr\event",
+                  "NA")
+                  
+    CopyModResrl("C:\\W\\A_MS\\Model_Repository\\wpegr\\resrl",
+                  "C:\\W\\B\Model_Repository\\wpegr\\resrl",
+                  "C:\\W\\B\\Model_Repository\\lib\\template_rel.tb0")
     
-    #plot results
-    generate_analysis_graphs(config_file,
-                            start_date = config_file.spinup_start_date)
+    
+    # # execute watflood
+    execute_watflood(config_file,config_file.model_directory)
+    execute_watflood(config_file,"C:\W\B\Model_Repository\wpegr")
+    
+    # #plot results
+    # generate_analysis_graphs(config_file,
+                            # start_date = config_file.spinup_start_date)
   
-    #copy results
-    if os.path.exists(os.path.join(os.path.dirname(config_file.repository_directory), "Model_Repository_spinup")):
-        shutil.rmtree(os.path.join(os.path.dirname(config_file.repository_directory), "Model_Repository_spinup"), onerror=onerror)
-    shutil.copytree(os.path.join(os.path.dirname(config_file.repository_directory), "Model_Repository"),
-                                os.path.join(os.path.dirname(config_file.repository_directory), "Model_Repository_spinup"),
-                                ignore = shutil.ignore_patterns("wxData", "bin"))
+    # #copy results
+    # if os.path.exists(os.path.join(os.path.dirname(config_file.repository_directory), "Model_Repository_spinup")):
+        # shutil.rmtree(os.path.join(os.path.dirname(config_file.repository_directory), "Model_Repository_spinup"), onerror=onerror)
+    # shutil.copytree(os.path.join(os.path.dirname(config_file.repository_directory), "Model_Repository"),
+                                # os.path.join(os.path.dirname(config_file.repository_directory), "Model_Repository_spinup"),
+                                # ignore = shutil.ignore_patterns("wxData", "bin"))
       
 
 
