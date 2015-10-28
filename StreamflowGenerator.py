@@ -34,7 +34,7 @@ table = [row.strip().split() for row in file]
 #get repo data from config file
 getRepos = False
 repos = []
-for line in open(Path + '/../../configuration.txt'):
+for line in open(Path + '/../../../configuration.txt'):
     tokens = line.strip().split()
 	# deal with white space. indexerror if list is 0 when attempting to pop
     if len(tokens) == 0:

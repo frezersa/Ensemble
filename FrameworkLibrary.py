@@ -8,9 +8,82 @@ import glob
 import argparse
 import re
 import urllib2
+import multiprocessing
 # NRC pyEnSim. must be installed prior to use.
 import pyEnSim.pyEnSim as pyEnSim 
 
+def execute_and_save_forecast(input):
+    config_file = input[0]
+    member_directory = input[1]
+    metfile = input[2]
+    #run watflood
+    execute_watflood(config_file,member_directory)
+  
+    #save results to common folder
+    shutil.copyfile(member_directory + "/wpegr/results/spl.csv",member_directory + "/forecast/" + "spl" + str(metfile[13:17]) + ".csv")
+    shutil.copyfile(member_directory + "/wpegr/results/resin.csv",member_directory + "/forecast/" + "resin" + str(metfile[13:17]) + ".csv")
+    
+
+
+
+def execute_and_plot_spinup(input):
+    config_file = input[0]
+    member_directory = input[1]
+    execute_watflood(config_file,member_directory)
+
+    
+    #plot results
+    generate_analysis_graphs(config_file,
+                            start_date = config_file.spinup_start_date,
+                            member_directory = member_directory)
+  
+    #copy results
+    print member_directory
+    if os.path.exists(os.path.join(os.path.dirname(member_directory), "Repo_spinup")):
+        shutil.rmtree(os.path.join(os.path.dirname(member_directory), "Repo_spinup"), onerror=onerror)
+    shutil.copytree(os.path.join(os.path.dirname(member_directory), "Repo"),
+                                os.path.join(os.path.dirname(member_directory), "Repo_spinup"),
+                                ignore = shutil.ignore_patterns("wxData", "bin"))
+                                
+def execute_and_plot_hindcast(input):
+    config_file = input[0]
+    member_directory = input[1]
+    execute_watflood(config_file,member_directory)
+
+    
+    #plot results
+    generate_analysis_graphs(config_file,
+                            start_date = config_file.historical_start_date,
+                            member_directory = member_directory)
+  
+    #copy results
+    print member_directory
+    if os.path.exists(os.path.join(os.path.dirname(member_directory), "Repo_hindcast")):
+        shutil.rmtree(os.path.join(os.path.dirname(member_directory), "Repo_hindcast"), onerror=onerror)
+    shutil.copytree(os.path.join(os.path.dirname(member_directory), "Repo"),
+                                os.path.join(os.path.dirname(member_directory), "Repo_hindcast"),
+                                ignore = shutil.ignore_patterns("wxData", "bin"))
+                                
+def execute_and_plot_forecast(input):
+    config_file = input[0]
+    member_directory = input[1]
+    
+    #plot results
+    generate_analysis_graphs(config_file,
+                            start_date = config_file.historical_start_date,
+                            member_directory = member_directory,
+                            resin = os.path.join(member_directory,"forecast/resin1-00.csv"),
+                            spl = os.path.join(member_directory,"forecast/spl1-00.csv"),
+                            spinup = os.path.join(member_directory,"../Repo_hindcast"))
+    generate_ensemble_graphs(config_file,member_directory) 
+  
+    #copy results
+    print member_directory
+    if os.path.exists(os.path.join(os.path.dirname(member_directory), "Repo_forecast")):
+        shutil.rmtree(os.path.join(os.path.dirname(member_directory), "Repo_forecast"), onerror=onerror)
+    shutil.copytree(os.path.join(os.path.dirname(member_directory), "Repo"),
+                                os.path.join(os.path.dirname(member_directory), "Repo_forecast"),
+                                ignore = shutil.ignore_patterns("wxData", "bin"))
 
 def ignore_wxData(src_path,content):
   if ('wxData' in content):
@@ -707,28 +780,43 @@ def query_ec_datamart_forecast(config_file):
       repo_pull(repos_parent[k], filePath,timestamp, config_file.grib_forecast_repo)
       print "\n"
 
-     
-    # convert to watflood r2c
-    #first remove old r2c files
-    shutil.rmtree(filePath+"/../wxData/met")
-    shutil.rmtree(filePath+"/../wxData/tem")
-    os.mkdir(filePath+"/../wxData/met")
-    os.mkdir(filePath+"/../wxData/tem")
 
+    existing_metfiles = os.listdir(filePath+"/../wxData/met")
+    existing_temfiles = os.listdir(filePath+"/../wxData/tem")
+    pattern = str(datestamp + ".*r2c")
     
-    print "Converting Data.... \n"
-    for k in range(len(repos_parent)):
-      print "Converting Forecast File(s): \n" + str(repos_parent[k][1]) 
-      #for j in range(len(repos_parent[k])):
-        #print str(j) + ":    " + str(repos_parent[k][j])
-        #print "\n"
-      print datestamp
-      grib2r2c(repos_parent[k], filePath, datestamp, startHour, config_file.grib_forecast_repo)
+    need_to_convert_met = "True"
+    for file in existing_metfiles:
+        if re.match(pattern, file):
+          need_to_convert_met = "False"
+          break
+          
+    need_to_convert_tem = "True"
+    for file in existing_temfiles:
+        if re.match(pattern, file):
+          need_to_convert_tem = "False"
+          break
+    
+    if need_to_convert_met == "False" and need_to_convert_tem == "False":
+        print "Converted Files already exist in wxData/met & tem directories,"
+        print "using those files, please delete if you wish to redo grib conversion"
+    else:
+      # convert to watflood r2c
+      # first remove old r2c files
+      shutil.rmtree(filePath+"/../wxData/met")
+      shutil.rmtree(filePath+"/../wxData/tem")
+      os.mkdir(filePath+"/../wxData/met")
+      os.mkdir(filePath+"/../wxData/tem")
+
       
+      # print "Converting Data.... \n"
+      for k in range(len(repos_parent)):
+        print "Converting Forecast File(s): \n" + str(repos_parent[k][1]) 
+        grib2r2c(repos_parent[k], filePath, datestamp, startHour, config_file.grib_forecast_repo)
+        
        
     
-    # query_ec_datamart_hindcast(historical_start_date,capa_start_hour)
-    #def query_ec_datamart_hindcast(start_date,capa_hour,repository_directory,scripts_directory):
+
 def query_ec_datamart_hindcast(config_file):
     
     # capa data
@@ -815,7 +903,7 @@ def generate_distribution_event_file(config_file, resume_toggle = "False", tbc_t
 
     
 
-def generate_model_event_files_forecast(config_file):
+def generate_run_event_files_forecast(config_file):
     """
     create watflood model event files for historic & forecast. 
     
@@ -831,24 +919,14 @@ def generate_model_event_files_forecast(config_file):
     tempr_list = os.listdir(config_file.model_directory + "/tempr")
     tem_list = sorted([s for s in tempr_list if "tem" in s])
     dif_list = sorted([s for s in tempr_list if "dif" in s])
-    #loop through list of met files, substituting each into a new event file, then run watflood and save results
-    
-    #delete contents of folder first
-    forecast_folder = config_file.repository_directory + "/forecast/"
-    for the_file in os.listdir(forecast_folder):
-      file_path = os.path.join(forecast_folder, the_file)
-      try:
-        if os.path.isfile(file_path):
-          os.unlink(file_path)
-      except Exception, e:
-        print e
-    
+   
     
     for i,metfile in enumerate(met_list):
       print "Running Scenario: " + metfile[13:17]
       # generate the forecast event file
       cmd = ["python",os.path.join(config_file.repository_directory,config_file.scripts_directory,"EventGenerator.py"),"-FS",config_file.forecast_date,
           "-f",":resumflg","y",
+          "-f",":tbcflg","n",
           "-f",":griddedrainfile","radcl\\" + metfile, 
           "-f",":griddedtemperaturefile","tempr\\" + tem_list[i],
           "-f",":griddeddailydifference","tempr\\" + dif_list[i],
@@ -856,13 +934,18 @@ def generate_model_event_files_forecast(config_file):
           config_file.historical_start_date]
       subprocess.call(cmd,shell=True)
     
-      #run watflood
-      execute_watflood(config_file)
-    
-      #save results to common folder
-      shutil.copyfile(config_file.model_directory + "/results/spl.csv",config_file.repository_directory + "/forecast/" + "spl" + str(metfile[13:17]) + ".csv")
-      shutil.copyfile(config_file.model_directory + "/results/resin.csv",config_file.repository_directory + "/forecast/" + "resin" + str(metfile[13:17]) + ".csv")
-      
+      #copy to other members
+      CopyModEvent("C:\WR_Ensemble\A_MS\Repo\wpegr\event",
+                    "C:\WR_Ensemble\B\Repo\wpegr\event",
+                    "NA")
+      #execute parallel program to loop through each met forecast and run watflood
+      input1 = [config_file,config_file.repository_directory,metfile]
+      input2 = [config_file,"C:\WR_Ensemble\B\Repo",metfile]
+      pool = multiprocessing.Pool(processes = 2)
+      pool.map(execute_and_save_forecast,[input1,input2])
+
+
+
 
 
 def generate_forecast_files(config_file):
@@ -875,7 +958,7 @@ def generate_forecast_files(config_file):
     
     def generate_forecast_streamflow_file():
         """
-        sets stations to -1 to only get natural flows from resevoirs.
+        sets stations to -1 to only get natural flows from reservoirs.
         
         forecast startdate required
         """
@@ -1045,12 +1128,12 @@ def update_model_folders(config_file):
 
 def execute_watflood(config_file,calibration_directory):
     """
-    execute waterflood model, current directory must be model directory.
+    execute watflood model, current directory must be model directory.
     """
 
     # must change to root of model directory
-    os.chdir(calibration_directory)  
-    print calibration_directory
+    os.chdir(os.path.join(calibration_directory,"wpegr"))  
+    # print calibration_directory
 
     
     cmd = [os.path.join(config_file.repository_directory,config_file.bin_directory,config_file.watflood_executable)]
@@ -1076,7 +1159,8 @@ def generate_spinup_event_files(config_file,start_date,end_date):
       cmd = ["python",
             os.path.join(config_file.repository_directory, config_file.scripts_directory,"EventGenerator.py"),
             "-fd","1900/01/01",
-            "-f",":noeventstofollow","0",event_start] #1900 is a dummy year that needs to be entered for the EventGenerator to work
+            "-f",":noeventstofollow","0",event_start,
+            "-f",":tbcflg","y"] #1900 is a dummy year that needs to be entered for the EventGenerator to work
       subprocess.call(cmd,shell=True)
       return #get out of function if single year
 
@@ -1175,9 +1259,11 @@ def generate_spinup_generic_files(config_file,start_date,end_date):
 
 
     
-def clean_up(model_directory,weather_data_directory,r_graphics_directory):
+def clean_up(repository_directory,tem="True",met="True"):
     """
     removes files from folders prior to execution of framework.
+    example repository_directory is "C:\WR_Ensemble\A_MS\Repo", 
+    which contains 'wpegr, diagnostic, wxdata, etc'
     """
     print "Cleaning up old files..."
     
@@ -1186,37 +1272,40 @@ def clean_up(model_directory,weather_data_directory,r_graphics_directory):
         
     # delete folders in model directory. removes all files.
     for i in directories:
-        if os.path.exists(os.path.join(model_directory,i)):
-          shutil.rmtree(os.path.join(model_directory,i))
+        if os.path.exists(os.path.join(repository_directory,"wpegr",i)):
+          shutil.rmtree(os.path.join(repository_directory,"wpegr",i))
+          
+    # create blank directories in model directory
+    for i in directories:
+        os.mkdir(os.path.join(repository_directory,"wpegr",i))
     
     # remove forecast weather data r2c's
     # files from met/ & /tem dirs
-    path = os.path.join(weather_data_directory,"tem","*.*")
-    files = glob.glob(path)
-    for i in files:
-        os.remove(i)
-    
-    path = os.path.join(weather_data_directory,"met","*.*")
-    files = glob.glob(path)
-    for i in files:
-        os.remove(i)
+    if tem == "True":
+      path = os.path.join(repository_directory,"wxData","tem","*.*")
+      files = glob.glob(path)
+      for i in files:
+          os.remove(i)
+    if met == "True":
+      path = os.path.join(repository_directory,"wxData","met","*.*")
+      files = glob.glob(path)
+      for i in files:
+          os.remove(i)
     
     # remove r generate analysis png's
-    path = os.path.join(r_graphics_directory,"*.*")
+    path = os.path.join(repository_directory,"diagnostic","*.*")
     files = glob.glob(path)
     for i in files:
         os.remove(i)
         
     # remove forecast csvs
-    path = os.path.join(os.path.dirname(model_directory),"forecast","*.*")
+    path = os.path.join(repository_directory,"forecast","*.*")
     files = glob.glob(path)
     for i in files:
         os.remove(i)
         
     
-    # create blank directories in model directory
-    for i in directories:
-        os.mkdir(os.path.join(model_directory,i))
+
     
 
     
@@ -1278,11 +1367,14 @@ def generate_analysis_graphs(config_file,
                               spl="NA",
                               start_date="NA",
                               end_date="NA",
-                              spinup="False"):
+                              spinup="False",
+                              member_directory = "NA"):
     """
     generates R daily graphics based on output of model resin & spl png files. output to /diagnostic folder
     """
     print "Generating Deterministic inflow and streamflow plots..."
+    if member_directory == "NA":
+        member_directory = os.path.dirname(config_file.model_directory)
     
     #= resin comparison graphic    
     # convert historical date from yyyy/mm/dd to yyyy-mm-dd
@@ -1292,7 +1384,7 @@ def generate_analysis_graphs(config_file,
 
     # resin.csv
     if resin == "NA":
-      resin = os.path.join(config_file.model_directory,"results","resin.csv")
+      resin = os.path.join(member_directory,"wpegr","results","resin.csv")
     spinup_resin = spinup
     
     if not spinup =="False":
@@ -1301,7 +1393,7 @@ def generate_analysis_graphs(config_file,
     cmd = [config_file.rscript_path,
           os.path.join(config_file.r_script_directory, config_file.r_script_analysis_resin),
           config_file.r_script_directory,
-          config_file.r_graphics_directory,
+          os.path.join(member_directory,"diagnostic"),
           resin,
           start_date,
           end_date,
@@ -1316,14 +1408,14 @@ def generate_analysis_graphs(config_file,
 
     # spl.csv
     if spl == "NA":
-      spl = os.path.join(config_file.model_directory,"results","spl.csv")
+      spl = os.path.join(member_directory,"wpegr","results","spl.csv")
     spinup_spl = spinup
     if not spinup =="False":
       spinup_spl = os.path.join(spinup,"wpegr","results","spl.csv")
     cmd = [config_file.rscript_path,
           os.path.join(config_file.r_script_directory,config_file.r_script_analysis_spl),
           config_file.r_script_directory,
-          config_file.r_graphics_directory,
+          os.path.join(member_directory,"diagnostic"),
           spl,
           start_date,
           end_date,spinup_spl]
@@ -1331,15 +1423,15 @@ def generate_analysis_graphs(config_file,
     
     
     
-def generate_ensemble_graphs(config_file):
+def generate_ensemble_graphs(config_file,member_directory):
     """
-    generates R dailiy graphics based on output of model resin & spl png files. output to /diagnostic folder
+    generates R daily graphics based on output of model resin & spl png files. output to /diagnostic folder
     """
     
     print "generating probablistic data"
     cmd = [config_file.rscript_path,
           os.path.join(config_file.r_script_directory,config_file.r_script_ensemblegraphs),
-          config_file.r_script_directory]
+          os.path.join(member_directory,"scripts")]
     #"rscript C:\Ensemble_Framework\EC_Operational_Framework\Model_Repository\scripts\Ensemble_plot.R"
     subprocess.call(cmd,shell=True)
     
@@ -1360,7 +1452,7 @@ def generate_meteorlogical_graphs(config_file):
     
     tmp = config_file.historical_start_date.split("/")
     start_date = "%s%s%s" %(tmp[0],tmp[1],tmp[2])
-    source_dir = os.path.join(os.path.dirname(config_file.repository_directory), "Model_Repository_hindcast")
+    source_dir = os.path.join(os.path.dirname(config_file.repository_directory), "Repo_hindcast")
     met_str_hindcast = os.path.join(source_dir, "wpegr", "radcl", start_date + "_met.r2c")
  
     cmd = [config_file.rscript_path, os.path.join(config_file.r_script_directory, config_file.r_script_forecast),
