@@ -24,8 +24,21 @@ def execute_and_save_forecast(input):
     shutil.copyfile(member_directory + "/wpegr/results/resin.csv",member_directory + "/forecast/" + "resin" + str(metfile[13:17]) + ".csv")
     
 
+def setup_members(config_file,member):
+    member_repository = os.path.join(os.path.dirname(os.path.dirname(config_file.repository_directory)), member,"Repo")
+    clean_up(member_repository)
+        
+    CopyModResrl(os.path.join(config_file.repository_directory,"wpegr","resrl"),
+                 os.path.join(member_repository,"wpegr","resrl"),
+                 os.path.join(member_repository,"lib","template_rel.tb0"))
 
-
+def copy_memberevents(config_file,member):
+    member_repository = os.path.join(os.path.dirname(os.path.dirname(config_file.repository_directory)), member,"Repo")
+    CopyModEvent(os.path.join(config_file.repository_directory,"wpegr","event"),
+                 os.path.join(member_repository,"wpegr","event"),
+                 "NA")
+                 
+                 
 def execute_and_plot_spinup(input):
     config_file = input[0]
     member_directory = input[1]
@@ -253,6 +266,7 @@ class ConfigParse:
 
         # link parsed configuration file values here. one point to change!
         self.repository_directory = parameter_settings["repository_directory"]
+        self.ensemble_members = parameter_settings["ensemble_members"]
          
         #= directories mapping
         self.configuration_file = configurationtext
@@ -903,7 +917,7 @@ def generate_distribution_event_file(config_file, resume_toggle = "False", tbc_t
 
     
 
-def generate_run_event_files_forecast(config_file):
+def generate_run_event_files_forecast(config_file,members):
     """
     create watflood model event files for historic & forecast. 
     
@@ -935,14 +949,19 @@ def generate_run_event_files_forecast(config_file):
       subprocess.call(cmd,shell=True)
     
       #copy to other members
-      CopyModEvent("C:\WR_Ensemble\A_MS\Repo\wpegr\event",
-                    "C:\WR_Ensemble\B\Repo\wpegr\event",
-                    "NA")
+      for i in members:
+        copy_memberevents(config_file,i)
+
       #execute parallel program to loop through each met forecast and run watflood
-      input1 = [config_file,config_file.repository_directory,metfile]
-      input2 = [config_file,"C:\WR_Ensemble\B\Repo",metfile]
-      pool = multiprocessing.Pool(processes = 2)
-      pool.map(execute_and_save_forecast,[input1,input2])
+      input = [[config_file,config_file.repository_directory,metfile]] #MotherShip input
+      for j,member in enumerate(members): #member input
+          member_repository = os.path.join(os.path.dirname(os.path.dirname(config_file.repository_directory)), member,"Repo")
+          input.append([config_file,member_repository,metfile])
+          
+      pool = multiprocessing.Pool(processes = len(members) + 1)
+      pool.map(execute_and_save_forecast,input)
+        
+
 
 
 
@@ -1467,12 +1486,12 @@ def generate_meteorlogical_graphs(config_file):
       
 
 
-def copy_resume(config_file,source_dir): #source dir is the name of the folder where the results come from (ex. Model_Repository_Spinup)
+def copy_resume(config_file,source_dir,member_path="NA"): #source dir is the name of the folder where the results come from (ex. Model_Repository_Spinup)
     #get full path of source directories
     print "Copying resume files from " + source_dir + "...." + "\n"
     
-    
-    source_dir = os.path.join(os.path.dirname(config_file.repository_directory),source_dir)
+    if member_path == "NA":
+      member_path = os.path.dirname(config_file.repository_directory)
     
     #delete \wpegr\flowinit.r2c,soilinit.r2c,resume.txt if exists
     resume_files = ["flow_init.r2c","soil_init.r2c","resume.txt","lake_level_init.pt2"]
@@ -1480,34 +1499,26 @@ def copy_resume(config_file,source_dir): #source dir is the name of the folder w
     make_items = []
     
     for i in resume_files:
-      del_path = os.path.join(config_file.repository_directory,"wpegr",i)
+      del_path = os.path.join(member_path,"Repo","wpegr",i)
       del_items.append(del_path)
       
-      make_path = os.path.join(source_dir,"wpegr",i)
+      make_path = os.path.join(member_path,source_dir,"wpegr",i)
       make_items.append(make_path)
         
     # delete \wpegr\level\20140101_ill.pt2 in dest directory if exists
     tmp = config_file.historical_start_date.split("/")
     ill_file = "%s%s%s" %(tmp[0],tmp[1],tmp[2]) + "_ill.pt2"
-    ill_path = os.path.join(config_file.repository_directory,"wpegr","level",ill_file)
+    ill_path = os.path.join(source_dir,"wpegr","level",ill_file)
     del_items.append(ill_path)
-    
-    # make_path = os.path.join(source_dir,"wpegr","level",tem_file)
-    #make_items.append(del_path)
     
     for d in del_items: 
       if os.path.exists(d):
-        
         os.remove(d)
         
     #copy \wpegr\flowinit.r2c,soilinit.r2c,resume.txt to dest directory from source directory
     for m in range(len(make_items)):
       shutil.copyfile(make_items[m],del_items[m])
-    
-    #create and copy 20140101_ill.pt2 (use rscript)
-    cmd = [config_file.rscript_path,os.path.join(config_file.r_script_directory,config_file.r_script_lakelevels),config_file.r_script_directory,os.path.join(source_dir,"wpegr/results/lake_sd.csv"),ill_path]
-    #subprocess.call(cmd,shell=True)
-    
+
     print "\n"
     
     

@@ -53,6 +53,7 @@ def main():
     ## read configuration file
     config_file = ConfigParse(data.Config) #config_file is a class that stores all parameters
     model_run = data.ModelRun
+    members = filter(None,config_file.ensemble_members.split(","))
 
     #= set inital working directory to repository root folder
     os.chdir(config_file.repository_directory)
@@ -65,7 +66,7 @@ def main():
     if model_run == "Spinup":
         print "\n===============creating spin up===================\n"
         
-        #Prepare Directories
+        # Prepare Directories
         clean_up(config_file.repository_directory)
         generate_spinup_event_files(config_file,
                                     config_file.spinup_start_date, 
@@ -88,22 +89,19 @@ def main():
                                    snow="False",
                                    moist="False")
         
-        clean_up("C:\WR_Ensemble\B\Repo")
-        
-        CopyModEvent("C:\WR_Ensemble\A_MS\Repo\wpegr\event",
-                      "C:\WR_Ensemble\B\Repo\wpegr\event",
-                      "NA")
-                      
-        CopyModResrl("C:\\WR_Ensemble\\A_MS\\Repo\\wpegr\\resrl",
-                      "C:\\WR_Ensemble\\B\Repo\\wpegr\\resrl",
-                      "C:\\WR_Ensemble\\B\\Repo\\lib\\template_rel.tb0")
-        
-        
-        # # execute watflood
-        input1 = [config_file,config_file.repository_directory]
-        input2 = [config_file,"C:\WR_Ensemble\B\Repo"]
-        pool = multiprocessing.Pool(processes = 2)
-        pool.map(execute_and_plot_spinup,[input1,input2])
+        for i in members:
+          setup_members(config_file,i)
+          copy_memberevents(config_file,i)
+
+        # execute watflood
+        input = [[config_file,config_file.repository_directory]] #MotherShip input
+        for j,member in enumerate(members): #member input
+          member_repository = os.path.join(os.path.dirname(os.path.dirname(config_file.repository_directory)), member,"Repo")
+          input.append([config_file,member_repository])
+          
+        pool = multiprocessing.Pool(processes = len(members) + 1)
+        #pool = multiprocessing.Pool(processes = 1)
+        pool.map(execute_and_plot_spinup,input)
 
 
 
@@ -113,7 +111,7 @@ def main():
         
         #Prepare Directories
         clean_up(config_file.repository_directory)
-        #copy_resume(config_file, "Repo_spinup")
+        copy_resume(config_file, "Repo_spinup")
         query_lwcb_db(config_file,
                       start_date = config_file.historical_start_date,
                       end_date = config_file.historical_end_date)
@@ -125,95 +123,62 @@ def main():
                                    snow = "False",
                                    moist = "False",)
                                    
-        clean_up("C:\WR_Ensemble\B\Repo")
-        CopyModEvent("C:\WR_Ensemble\A_MS\Repo\wpegr\event",
-                      "C:\WR_Ensemble\B\Repo\wpegr\event",
-                      "NA")
-                      
-        CopyModResrl("C:\\WR_Ensemble\\A_MS\\Repo\\wpegr\\resrl",
-                      "C:\\WR_Ensemble\\B\Repo\\wpegr\\resrl",
-                      "C:\\WR_Ensemble\\B\\Repo\\lib\\template_rel.tb0")
-        
-        
-        # # execute watflood
-        input1 = [config_file,config_file.repository_directory]
-        input2 = [config_file,"C:\WR_Ensemble\B\Repo"]
-        pool = multiprocessing.Pool(processes = 2)
-        pool.map(execute_and_plot_hindcast,[input1,input2])
-                                   
-                                   
+        for i in members:
+          setup_members(config_file,i)
+          copy_memberevents(config_file,i)
+          member_path = os.path.join(os.path.dirname(os.path.dirname(config_file.repository_directory)), i)
+          copy_resume(config_file, "Repo_spinup", member_path=member_path)
 
+        # execute watflood
+        input = [[config_file,config_file.repository_directory]] #MotherShip input
+        for j,member in enumerate(members): #member input
+          member_repository = os.path.join(os.path.dirname(os.path.dirname(config_file.repository_directory)), member,"Repo")
+          input.append([config_file,member_repository])
+          
+        pool = multiprocessing.Pool(processes = len(members) + 1)
+        pool.map(execute_and_plot_hindcast,input)
+
+                                   
+                                  
 
     elif model_run == "Forecast":
         print "Running Forecast\n"
         
-        # # Prepare Directories
-        # clean_up(config_file.repository_directory,met="False",tem="False")
-        # # copy_resume(config_file,"Model_Repository_hindcast")
-        # generate_forecast_files(config_file)
-        # query_ec_datamart_forecast(config_file)
-        # update_model_folders(config_file)
+        # Prepare Directories
+        clean_up(config_file.repository_directory,met="False",tem="False")
+        copy_resume(config_file,"Repo_hindcast")
+        generate_forecast_files(config_file)
+        query_ec_datamart_forecast(config_file)
+        update_model_folders(config_file)
         
-        # clean_up("C:\WR_Ensemble\B\Repo")
-        # CopyModResrl("C:\\WR_Ensemble\\A_MS\\Repo\\wpegr\\resrl",
-                      # "C:\\WR_Ensemble\\B\Repo\\wpegr\\resrl",
-                      # "C:\\WR_Ensemble\\B\\Repo\\lib\\template_rel.tb0")
-                      
-        # # execute watflood (this calls parallel processing for spl execution
-        # generate_run_event_files_forecast(config_file)
+        for i in members:
+          setup_members(config_file,i)
+          member_path = os.path.join(os.path.dirname(os.path.dirname(config_file.repository_directory)), i)
+          copy_resume(config_file, "Repo_hindcast", member_path=member_path)
+          
+          
+        # execute watflood (this calls parallel processing for spl execution
+        generate_run_event_files_forecast(config_file,members)
 
-        # generate_meteorlogical_graphs(config_file) #only for MotherShip
+        generate_meteorlogical_graphs(config_file) #only for MotherShip
         
         #execute parallel program to generate diagnostics
-        input1 = [config_file,config_file.repository_directory]
-        input2 = [config_file,"C:\WR_Ensemble\B\Repo"]
-        pool = multiprocessing.Pool(processes = 2)
-        pool.map(execute_and_plot_forecast,[input1,input2])
-
-        # generate_ensemble_graphs(config_file)
-
-                                    
-                                    
-                                    
-
-    # elif model_run == "HindcastAdjust":
-        # print "adjusting hindcast"
-        # precip_toggle = "True"
-        # temp_toggle = "True"
-        
-        # # while precip_toggle == "True" or temp_toggle == "True":
-        # copy_resume(config_file,"Model_Repository_spinup")
-        # adjust_hindcast(precip_toggle,temp_toggle)
-        
-            
-        # # copy everything to new hindcast folder
-        # if os.path.exists(os.path.join(os.path.dirname(repository_directory),"Model_Repository_hindcast_adjusted")):
-          # shutil.rmtree(os.path.join(os.path.dirname(repository_directory),"Model_Repository_hindcast_adjusted"))
-        # shutil.copytree(os.path.join(os.path.dirname(repository_directory),"Model_Repository"),os.path.join(os.path.dirname(repository_directory),"Model_Repository_hindcast_adjusted"),ignore=ignore_wxData)
+        input = [[config_file,config_file.repository_directory]] #MotherShip input
+        for j,member in enumerate(members): #member input
+          member_repository = os.path.join(os.path.dirname(os.path.dirname(config_file.repository_directory)), member,"Repo")
+          input.append([config_file,member_repository])
           
+        pool = multiprocessing.Pool(processes = len(members) + 1)
+        pool.map(execute_and_plot_forecast,input)
         
-          
-    # elif model_run == "RerunForecast":
-        # print "Re-Running Forecast\n"
-        # generate_model_event_files_forecast(historical_start_date,forecast_date)
+        subprocess.call("Rscript C:\WR_Ensemble\A_MS\Repo\scripts\EnsembleEnsemble_process.R",shell=True)
         
-        # #generate plots
-        # generate_analysis_graphs(forecast_date,historical_start_date,model_directory,os.path.join(os.path.dirname(repository_directory),"Model_Repository/forecast/resin1-00.csv"),os.path.join(os.path.dirname(repository_directory),"Model_Repository/forecast/spl1-00.csv"),r_script_directory,r_graphics_directory,r_script_analysis_resin,r_script_analysis_spl,"2014-04-01","NA", os.path.join(os.path.dirname(repository_directory),"Model_Repository_hindcast_adjusted"))
-        # generate_meteorlogical_graphs(r_script_directory,r_script_forecast,r_graphics_directory)
-        # generate_ensemble_graphs(r_script_directory,r_script_ensemblegraphs,r_graphics_directory)
-        # # generate_dss(hecdss_vue_path,r_script_directory,hec_writer_script)
 
-        # # copy everything to new hindcast folder
-        # if os.path.exists(os.path.join(os.path.dirname(repository_directory),"Model_Repository_forecast")):
-          # print os.path.join(os.path.dirname(repository_directory),"Model_Repository_forecast")
-          # shutil.rmtree(os.path.join(os.path.dirname(repository_directory),"Model_Repository_forecast"))
-        # shutil.copytree(os.path.join(os.path.dirname(repository_directory),"Model_Repository"),os.path.join(os.path.dirname(repository_directory),"Model_Repository_forecast"),ignore=ignore_wxData)
-          
 
-        
 
     else:
         print "\noptions selected are not correct. please review configuration settings.\n"
+
 
 if __name__ == "__main__":
     main()

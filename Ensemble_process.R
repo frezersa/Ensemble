@@ -101,7 +101,7 @@ inflowplots <- function(percentileframe,resin_hind,LakeName,m){
     geom_ribbon(aes(ymin=Min,ymax=Max,fill="dimgray"),alpha=.4) +
     geom_line(aes(y=Med),size=0.5,col="red") +
     theme_bw() + xlab("Date") + ylab("1-Day Inflow (m3/s)") + ggtitle(LakeName) +
-    scale_y_continuous(limits=c(min(0,tdf,na.rm=T),max(tdf,na.rm=T))) +
+    scale_y_continuous(limits=c(min(0,tdf$Obs,na.rm=T),max(tdf$Obs,na.rm=T))) +
     scale_fill_identity(name = '', guide = 'legend',labels = c('90% Conf.')) +
     scale_colour_manual(name = '', 
                         values =c('black'='black','red'='red'), labels = c('Observed','Modelled \n (Median)')) +
@@ -167,6 +167,10 @@ garbage<-dev.off()
 
 png(paste0(output_directory,"1-dayinflows_2.png"),res=150,width=2000,height=1300)
 suppressWarnings(multiplot(p2,p7,p3,cols=2))
+garbage<-dev.off()
+
+png(paste0(output_directory,"E.png"),res=150,width=1000,height=1300)
+suppressWarnings(multiplot(p1,p2,cols=1))
 garbage<-dev.off()
 
 
