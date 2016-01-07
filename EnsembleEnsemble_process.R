@@ -72,7 +72,7 @@ file.resin_hindcast<-paste0(hindcast_directory,"wpegr/results/resin.csv")
 resin_hind <- ReadSplCsvWheader(file.resin_hindcast)
 num_reservoirs<-length(resin_hind$stations)
 
-members <- c("A_MS","B","C","D","E")
+members <- c("A_MS","B","C","D","F")
 reservoir <- "LOW"
 #members <- members[1]
 getreservoirdata <- function(members,reservoir){
