@@ -16,39 +16,76 @@ import multiprocessing
 # NRC pyEnSim. must be installed prior to use.
 import pyEnSim.pyEnSim as pyEnSim 
 
-def execute_and_save_forecast(input):
-    config_file = input[0]
-    member_directory = input[1]
-    metfile = input[2]
-    #run watflood
-    execute_watflood(config_file,member_directory)
-  
-    #save results to common folder
-    shutil.copyfile(member_directory + "/wpegr/results/spl.csv",member_directory + "/forecast/" + "spl" + str(metfile[13:17]) + ".csv")
-    shutil.copyfile(member_directory + "/wpegr/results/resin.csv",member_directory + "/forecast/" + "resin" + str(metfile[13:17]) + ".csv")
+
     
 
 def setup_members(config_file,member):
+    """
+    Function to clean up the working 'Repo' directory of the specfied member and
+    copy and modify the reservoir release files
+
+    Args:
+    config_file: see class ConfigParse
+    member: name of hydrological ensemble member
+    
+    Returns:
+    Null
+    """
+    
+    #clean up the member repository
     member_repository = os.path.join(os.path.dirname(os.path.dirname(config_file.repository_directory)), member,"Repo")
     clean_up(member_repository)
         
+    #copy the reservoir release files from the 'mothership' and modify the coefficients as required
     CopyModResrl(os.path.join(config_file.repository_directory,"wpegr","resrl"),
                  os.path.join(member_repository,"wpegr","resrl"),
                  os.path.join(member_repository,"lib","template_rel.tb0"))
 
+                 
 def copy_memberevents(config_file,member):
+    """
+    Function to Copy event files to different member directory and 
+    changes paths of specified files back to the 'mothership' directory
+
+    Args:
+    config_file: see class ConfigParse
+    member: name of hydrological ensemble member
+    
+    Returns:
+    NULL
+    """
+    
     member_repository = os.path.join(os.path.dirname(os.path.dirname(config_file.repository_directory)), member,"Repo")
+    
     CopyModEvent(os.path.join(config_file.repository_directory,"wpegr","event"),
                  os.path.join(member_repository,"wpegr","event"),
                  "NA")
                  
                  
 def execute_and_plot_spinup(input):
+    """
+    Function to execute and plot WATFLOOD spinup; then copy results from the working 'Repo' directory
+    to the 'Repo_spinup' directory.
+    
+    This is used in conjunction with the multiprocessing.Pool() function, which it requires a single input.
+    The multiple input requirement is bypassed by joining them in a tuple and parsing them inside the function
+    
+    Args:
+    input: list of 3 arguments
+            input[0]: config_file - see class ConfigParse
+            input[1]: member directory - specifies which hydrogolical member of ensemble is used
+            
+    Returns:
+    NULL
+    """
+    
+    #parse input
     config_file = input[0]
     member_directory = input[1]
+    
+    #execute spinup
     execute_watflood(config_file,member_directory)
 
-    
     #plot results
     generate_analysis_graphs(config_file,
                             start_date = config_file.spinup_start_date,
@@ -62,9 +99,30 @@ def execute_and_plot_spinup(input):
                                 os.path.join(os.path.dirname(member_directory), "Repo_spinup"),
                                 ignore = shutil.ignore_patterns("wxData", "bin"))
                                 
+                                
+                                
 def execute_and_plot_hindcast(input):
+    """
+    Function to execute and plot WATFLOOD hindcast; then copy results from the working 'Repo' directory
+    to the 'Repo_hindcast' directory.
+    
+    This is used in conjunction with the multiprocessing.Pool() function, which it requires a single input.
+    The multiple input requirement is bypassed by joining them in a tuple and parsing them inside the function
+    
+    Args:
+    input: list of 3 arguments
+            input[0]: config_file - see class ConfigParse
+            input[1]: member directory - specifies which hydrogolical member of ensemble is used
+            
+    Returns:
+    NULL
+    """
+    
+    #parse inpute
     config_file = input[0]
     member_directory = input[1]
+    
+    #execute hindcast
     execute_watflood(config_file,member_directory)
 
     
@@ -81,7 +139,56 @@ def execute_and_plot_hindcast(input):
                                 os.path.join(os.path.dirname(member_directory), "Repo_hindcast"),
                                 ignore = shutil.ignore_patterns("wxData", "bin"))
                                 
-def execute_and_plot_forecast(input):
+                                
+def execute_and_save_forecast(input):
+    """
+    Function to execute WATFLOOD forecast and rename&copy the results to a specified
+    directory (this is usually the forecast directory in the working 'Repo' directory)
+    
+    This is used in conjunction with the multiprocessing.Pool() function, which it requires a single input.
+    The multiple input requirement is bypassed by joining them in a tuple and parsing them inside the function
+    
+    Args:
+    input: list of 3 arguments
+            input[0]: config_file - see class ConfigParse
+            input[1]: member directory - specifies which hydrogolical member of ensemble is used
+            input[2]: metfile - specifies which meteorological ensemble member used
+            
+    Returns:
+    NULL
+    """
+    
+    #parse input file
+    config_file = input[0]
+    member_directory = input[1]
+    metfile = input[2]
+    
+    #run watflood
+    execute_watflood(config_file,member_directory)
+  
+    #save results to common folder
+    shutil.copyfile(member_directory + "/wpegr/results/spl.csv",member_directory + "/forecast/" + "spl" + str(metfile[13:17]) + ".csv")
+    shutil.copyfile(member_directory + "/wpegr/results/resin.csv",member_directory + "/forecast/" + "resin" + str(metfile[13:17]) + ".csv")
+    
+    
+    
+def analyze_and_plot_forecast(input):
+    """
+    Function to analyze all of the WATFLOOD forecasts and plot the ensembles;
+    then copy results from the working 'Repo' directory to the 'Repo_forecast' directory.
+
+    
+    This is used in conjunction with the multiprocessing.Pool() function, which it requires a single input.
+    The multiple input requirement is bypassed by joining them in a tuple and parsing them inside the function
+    
+    Args:
+    input: list of 3 arguments
+            input[0]: config_file - see class ConfigParse
+            input[1]: member directory - specifies which hydrogolical member of ensemble is used
+            
+    Returns:
+    NULL
+    """
     config_file = input[0]
     member_directory = input[1]
     
@@ -101,25 +208,12 @@ def execute_and_plot_forecast(input):
     shutil.copytree(os.path.join(os.path.dirname(member_directory), "Repo"),
                                 os.path.join(os.path.dirname(member_directory), "Repo_forecast"),
                                 ignore = shutil.ignore_patterns("wxData", "bin"))
+                                
 
-def ignore_wxData(src_path,content):
-  if ('wxData' in content):
-     return 'wxData'
-     #Here when test folder found it will passed 
-     #to ignore list
-  else:
-     return []
-
-
-
-def ignorePath(path):
-  def ignoref(p, files):
-    return (f for f in files if os.abspath(os.path.join(p, f)) == path)
-  return ignoref
-  
   
 def onerror(func, path, exc_info):
     """
+    http://stackoverflow.com/questions/2656322/shutil-rmtree-fails-on-windows-with-access-is-denied
     Error handler for ``shutil.rmtree``.
 
     If the error is due to an access error (read only file)
@@ -142,11 +236,20 @@ def CopyModEvent(mothership_dir,member_dir,keywords="NA"):
     """
     Function specifically for hydrological ensemble modelling. Copies event files to different 
     member directory and changes paths of specified files back to the 'mothership' directory.
+    
+    Args: mothership_dir: 'event' directory of mothership
+          member_dir: 'event' directory of member
+          keywords: flags found in event file that need changing
+          
+    Returns:
+    NULL
     """
     
+    #get path and names of event files
     mothership_path = os.path.dirname(mothership_dir)
     mothership_files = os.listdir(mothership_dir)
     
+    #copy event files from mothership to member, keep log
     member_files = []
     for file_name in mothership_files:
         full_file_name = os.path.join(mothership_dir, file_name)
@@ -182,13 +285,27 @@ def CopyModEvent(mothership_dir,member_dir,keywords="NA"):
             
 def CopyModResrl(mothership_dir,member_dir,template):
     """
-    function to copy reservoir release files from the 'mothership' directory and change the 
+    Function to copy reservoir release files from the 'mothership' directory and change the 
     coefficients (ie stage discharge curve) to be specific for the member calibration.
+    
+    Args:
+        mothership_dir: the mothership directory where the 'resrl' files are stored
+                        ex) 'Q:\WR_Ensemble_dev\A_MS\Repo\wpegr\resrl'
+        member_dir: the member directory where the 'resrl' files are stored
+                        ex) 'Q:\WR_Ensemble_dev\51-A\Repo\wpegr\resrl'
+        template: the member directory where the 'resrl' template is stored, this 
+                    needs to have the same number and order of reservoirs as the mothership
+                    
+    Returns:
+    NULL
     """
 
+    #find all of the release files in the mothership 'resrl' directory 
+    #(reservoir inflow files are stored in the same directory)
     mothership_path = os.path.dirname(mothership_dir)
     mothership_files = [s for s in os.listdir(mothership_dir) if 'rel' in s]
 
+    #copy found files into member directory and log the records
     member_files = []
     for file_name in mothership_files:
         full_file_name = os.path.join(mothership_dir, file_name)
@@ -234,10 +351,13 @@ def CopyModResrl(mothership_dir,member_dir,template):
                 
             if "endHeader" in line[0]:
                 flag_data = "True"
+                
+                
             
 def parse_configuration_file(configuration_file):
     """
     parse configuration file name:value into a dict.
+    used to create class ConfigParse
     """
     
     config_script = open(configuration_file,"r").readlines()
@@ -265,7 +385,7 @@ class ConfigParse:
     ''' object to define all parameters in the configuration.txt file'''
     def __init__(self,configurationtext):
     
-            ## read configuration text file
+        ## read configuration text file
         parameter_settings = parse_configuration_file(configurationtext)
 
         # link parsed configuration file values here. one point to change!
@@ -370,7 +490,6 @@ class ConfigParse:
         self.r_script_analysis_resin = parameter_settings["r_script_analysis_resin"]
 
         # location of adjustment scripts
-
         self.precip_adjust = parameter_settings["precip_adjust"]
         self.temp_adjust = parameter_settings["temp_adjust"]
 
@@ -488,8 +607,14 @@ def query_lwcb_db(config_file,start_date,end_date):
     
     
     
-#gets a DateTime hours hours from midnight this morning
+
 def getDateTime(hours):
+    """
+    gets a DateTime hours hours from midnight this morning
+    
+    Args:
+        hours: integer, see grib2r2c function
+    """
     tm = datetime.datetime.now()
     newdate = datetime.datetime(tm.year, tm.month, tm.day, 0, 0, 0)
     newdate = newdate + datetime.timedelta(hours=hours)
@@ -497,19 +622,79 @@ def getDateTime(hours):
 
     
     
-#checks to see if a directory exists and creates it if it does not
+
 def build_dir(directory):
+    """
+    checks to see if a directory exists and creates it if it does not
+    Args:
+        build_dir: directory path
+    """
+
     d = os.path.dirname(directory)
     if not os.path.exists(d):
         os.makedirs(d)
     
+def repo_pull_nomads(repos, filePath, timestamp, repo_path):
+    """
+    http://nomads.ncep.noaa.gov/txt_descriptions/CMCENS_doc.shtml
+    
+    download for acumulated rain (CMC):
+    http://nomads.ncep.noaa.gov/cgi-bin/filter_cmcens.pl?file=cmc_gec00.t00z.pgrb2af06&lev_surface=on&var_APCP=on&var_TMP=on&subregion=&leftlon=-98&rightlon=-88&toplat=54&bottomlat=46&dir=%2Fcmce.20160830%2F00%2Fpgrb2a
+    http://nomads.ncep.noaa.gov/cgi-bin/filter_cmcens.pl?file=cmc_gec00.t00z.pgrb2af384&lev_surface=on&var_APCP=on&var_TMP=on&subregion=&leftlon=-98&rightlon=-88&toplat=54&bottomlat=46&dir=%2Fcmce.20160830%2F00%2Fpgrb2a
+    http://nomads.ncep.noaa.gov/cgi-bin/filter_cmcens.pl?file=cmc_gep20.t00z.pgrb2af06&lev_surface=on&var_APCP=on&var_TMP=on&subregion=&leftlon=-98&rightlon=-88&toplat=54&bottomlat=46&dir=%2Fcmce.20160830%2F00%2Fpgrb2a
+    http://nomads.ncep.noaa.gov/cgi-bin/filter_cmcens.pl?file=cmc_gep20.t00z.pgrb2af384&lev_surface=on&var_APCP=on&var_TMP=on&subregion=&leftlon=-98&rightlon=-88&toplat=54&bottomlat=46&dir=%2Fcmce.20160830%2F00%2Fpgrb2a
+    
+    
+    download for temp (CMC):
+    http://nomads.ncep.noaa.gov/cgi-bin/filter_cmcens.pl?file=cmc_geavg.t00z.pgrb2af00&lev_2_m_above_ground=on&var_TMP=on&subregion=&leftlon=-98&rightlon=-88&toplat=54&bottomlat=46&dir=%2Fcmce.20160830%2F00%2Fpgrb2a
+    
+    download for acumulated rain (GFS):
+    http://nomads.ncep.noaa.gov/cgi-bin/filter_gens.pl?file=gec00.t00z.pgrb2f06&lev_surface=on&var_APCP=on&subregion=&leftlon=-98&rightlon=-88&toplat=54&bottomlat=46&dir=%2Fgefs.20160830%2F00%2Fpgrb2
+    http://nomads.ncep.noaa.gov/cgi-bin/filter_gens.pl?file=gec00.t00z.pgrb2f384&lev_surface=on&var_APCP=on&subregion=&leftlon=-98&rightlon=-88&toplat=54&bottomlat=46&dir=%2Fgefs.20160830%2F00%2Fpgrb2
+    http://nomads.ncep.noaa.gov/cgi-bin/filter_gens.pl?file=gep20.t00z.pgrb2f06&lev_surface=on&var_APCP=on&subregion=&leftlon=-98&rightlon=-88&toplat=54&bottomlat=46&dir=%2Fgefs.20160830%2F00%2Fpgrb2
+    http://nomads.ncep.noaa.gov/cgi-bin/filter_gens.pl?file=gep20.t00z.pgrb2f384&lev_surface=on&var_APCP=on&subregion=&leftlon=-98&rightlon=-88&toplat=54&bottomlat=46&dir=%2Fgefs.20160830%2F00%2Fpgrb2
+
+
+
+    download for temp (GFS):
+    http://nomads.ncep.noaa.gov/cgi-bin/filter_gens.pl?file=gec00.t00z.pgrb2anl&lev_2_m_above_ground=on&lev_surface=on&var_TMP=on&subregion=&leftlon=-98&rightlon=-88&toplat=54&bottomlat=46&dir=%2Fgefs.20160830%2F00%2Fpgrb2
+    
+    
+    
+    
+    
+    """
+
     
     
 def repo_pull(repos,filePath,timestamp,repo_path):
-    #iterate through repo data to pull down files
+    """
+    Downloads data from online repository using wget
+    
+    Args:
+        repos: the source data in a single source from the config file, see below for example
+        filePath: the filepath where the scripts are run ex) Q:\WR_Ensemble_dev\A_MS\Repo\scripts
+        timestamp: datestamp + start hour, this is currently the config.file date with a static start hour of '00'
+        repo_path: path to store all the repo data; currently 'config_file.grib_forecast_repo'
+        
+        [0]   :URL                http://dd.weather.gc.ca/model_gem_regional/10km/grib2/%H/%T/                http://dd.weather.gc.ca/model_gem_global/25km/grib2/lat_lon/%H/%T/ 
+        [1]   :FileName           CMC_reg_APCP_SFC_0_ps10km_%Y%m%d%H_P%T.grib2                                CMC_glb_APCP_SFC_0_latlon.24x.24_%Y%m%d%H_P%T.grib2
+        [2]   :DeltaTimeStart     3                                                                           3            
+        [3]   :DeltaTimeEnd       48                                                                          240        
+        [4]   :DeltaTimeStep      3                                                                           3                          
+        [5]   :StitchTimeStart    3                                                                           48
+        [6]   :StitchTimeEnd      48                                                                          240
+        [7]   :Grouping           met                                                                         met   
+        [8]   :Type               GEM                                                                         GEM
+        [9]   :Forecast           1                                                                           1
+
+    """
+
+    #build repository directory to store the date's files
     today_repo_path = repo_path + "/" + timestamp + "/"
     build_dir(today_repo_path)
 
+    
     for i, url in enumerate(repos[0]): 
       DeltaTimeStart = int(repos[2][i])
       DeltaTimeEnd = int(repos[3][i])
@@ -528,21 +713,25 @@ def repo_pull(repos,filePath,timestamp,repo_path):
         name = repos[1][i].replace('%T', str(DeltaTime).zfill(3))
         
         filename = url + name
+        
         #run wget
-        if not os.path.isfile(today_repo_path + name):
+        if not os.path.isfile(today_repo_path + name): #if file does not exist locally
           try: #download if remote file exists
-              #print filename
               urllib2.urlopen(filename) #command to see if remote file can be opened
               os.system("wget -q -O " + today_repo_path + name + " " + filename + " 2> NUL") #use wget to actually download the file
           except urllib2.URLError as e: #do nothing if remote file doesn't exist
               print " Error: File does not exist locally or remotely"
         
-          #os.system("wget -q -O " + filePath + "/../wxData/Forecasted/" + timestamp + "/" + name + " " + filename + " 2> NUL")
+
       print "\n"
           
           
           
 def grib2r2c(repos,filePath,datestamp,startHour,repo_path):
+    """
+
+    """
+
       #Initialize some usful variables
       Path = os.path.split(os.path.abspath(__file__))[0]
       today_repo_path = repo_path + "/" + datestamp + startHour + "/"
@@ -759,6 +948,8 @@ def query_ec_datamart_forecast(config_file):
     getRepos = False
     repos_parent = []
     for line in open(config_file.configuration_file):
+    #this for loop populates the variable 'repos_parent'
+    #'repos_parent[0]' is the data for the first SourceData in the configuration file
       tokens = line.strip().split()
       # deal with white space. indexerror if list is 0 when attempting to pop
       if len(tokens) == 0:
@@ -776,11 +967,13 @@ def query_ec_datamart_forecast(config_file):
         repos.append(tokens)
     
     
+    
 
     # Replace special characters (not %T yet) with new values
-    for k in range(len(repos_parent)):
-      for i, line in enumerate(repos_parent[k]):   
-        for j, val in enumerate(line):
+    for k in range(len(repos_parent)): #for each source data section
+      for i, line in enumerate(repos_parent[k]): #for each line in a section
+        for j, val in enumerate(line):#for each item in a line
+          #substitue Years, Months, Days, Hours with actual dates/times from config_file.forecast_date
           repos_parent[k][i][j] = repos_parent[k][i][j].replace('%Y', split_date[0])
           repos_parent[k][i][j] = repos_parent[k][i][j].replace('%m', split_date[1])
           repos_parent[k][i][j] = repos_parent[k][i][j].replace('%d', split_date[2])
@@ -835,6 +1028,10 @@ def query_ec_datamart_forecast(config_file):
     
 
 def query_ec_datamart_hindcast(config_file):
+    """
+
+    """
+
     
     # capa data
     # always pull capa data
@@ -975,7 +1172,63 @@ def generate_run_event_files_forecast(config_file,members):
       pool.map(execute_and_save_forecast,input)
         
 
+def generate_forecast_streamflow_file():
+    """
+    sets stations to -1 to only get natural flows from reservoirs.
+    
+    forecast startdate required
+    """
+    
+    # forecast start date used
+    # --start hour is optional. not implemented as it defaults to 00.
+    cmd = ["python",os.path.join(config_file.repository_directory,
+                                config_file.scripts_directory,
+                                "StreamflowGenerator.py"),
+                                config_file.forecast_date]
+    subprocess.call(cmd,shell=True)
 
+
+def generate_forecast_releases_file():
+    """
+    sets station co-efficents to 0.
+    
+    forecast startdate required & --forecast flag to set true to write 0 coffiecents for selected stations in config file.
+    """
+    
+    # --hour is optional. not implemented as it defaults to 00. --forecast to write zeros in coeffiecents for selected stations in config file.
+    cmd = [config_file.rscript_path,os.path.join(config_file.r_script_directory,config_file.r_script_lwcb_query),
+                                      config_file.r_script_directory,config_file.model_directory,"resrl","rel",
+                                      config_file.forecast_date,config_file.forecast_date,
+                                      config_file.lwcb_db_path,config_file.lwcb_station_resrel]
+    subprocess.call(cmd,shell=True)
+
+
+def generate_forecast_inflows_file():
+    """
+    sets stations to -1.
+    
+    forecast startdate required
+    """
+    
+    cmd = ["python",os.path.join(config_file.repository_directory,config_file.scripts_directory,"ResInflowGenerator.py"),config_file.forecast_date]
+    subprocess.call(cmd,shell=True)
+
+
+
+def generate_forecast_diversions_file():
+    """
+    sets diversion file to 0.
+    
+    forecast startdate required
+    """
+    
+    # generate div_pt2, write to level directory
+    # cmd = ["python",os.path.join(repository_directory,scripts_directory,"GenericTemplateWritter.py"),"TEMPLATE_div.tb0",os.path.join(model_directory,"diver"),"div.tb0",forecast_date]
+    # subprocess.call(cmd,shell=True)
+    cmd = [config_file.rscript_path,os.path.join(config_file.r_script_directory,config_file.r_script_lwcb_query),config_file.r_script_directory,
+          config_file.model_directory,"diver","diver",config_file.forecast_date,config_file.forecast_date,
+          config_file.lwcb_db_path,config_file.lwcb_station_diver]
+    subprocess.call(cmd,shell=True)
 
 
 
@@ -987,70 +1240,6 @@ def generate_forecast_files(config_file):
     """
     
     print "Generating streamflow, reservoir and diversion forecast files..."
-    
-    def generate_forecast_streamflow_file():
-        """
-        sets stations to -1 to only get natural flows from reservoirs.
-        
-        forecast startdate required
-        """
-        
-        # forecast start date used
-        # --start hour is optional. not implemented as it defaults to 00.
-        cmd = ["python",os.path.join(config_file.repository_directory,
-                                    config_file.scripts_directory,
-                                    "StreamflowGenerator.py"),
-                                    config_file.forecast_date]
-        subprocess.call(cmd,shell=True)
-    
-    
-    def generate_forecast_releases_file():
-        """
-        sets station co-efficents to 0.
-        
-        forecast startdate required & --forecast flag to set true to write 0 coffiecents for selected stations in config file.
-        """
-        
-        # --hour is optional. not implemented as it defaults to 00. --forecast to write zeros in coeffiecents for selected stations in config file.
-        cmd = [config_file.rscript_path,os.path.join(config_file.r_script_directory,config_file.r_script_lwcb_query),
-                                          config_file.r_script_directory,config_file.model_directory,"resrl","rel",
-                                          config_file.forecast_date,config_file.forecast_date,
-                                          config_file.lwcb_db_path,config_file.lwcb_station_resrel]
-        subprocess.call(cmd,shell=True)
-    
-    
-    def generate_forecast_inflows_file():
-        """
-        sets stations to -1.
-        
-        forecast startdate required
-        """
-        
-        cmd = ["python",os.path.join(config_file.repository_directory,config_file.scripts_directory,"ResInflowGenerator.py"),config_file.forecast_date]
-        subprocess.call(cmd,shell=True)
-    
-    
-    
-    def generate_forecast_diversions_file():
-        """
-        sets diversion file to 0.
-        
-        forecast startdate required
-        """
-        
-        # generate div_pt2, write to level directory
-        # cmd = ["python",os.path.join(repository_directory,scripts_directory,"GenericTemplateWritter.py"),"TEMPLATE_div.tb0",os.path.join(model_directory,"diver"),"div.tb0",forecast_date]
-        # subprocess.call(cmd,shell=True)
-        cmd = [config_file.rscript_path,os.path.join(config_file.r_script_directory,config_file.r_script_lwcb_query),config_file.r_script_directory,
-              config_file.model_directory,"diver","diver",config_file.forecast_date,config_file.forecast_date,
-              config_file.lwcb_db_path,config_file.lwcb_station_diver]
-        subprocess.call(cmd,shell=True)
-
-      
-    # diversions
-
-
-    
     generate_forecast_streamflow_file()
     generate_forecast_releases_file()
     generate_forecast_inflows_file()

@@ -1,26 +1,14 @@
 """
-# Richard Burcher
-# NRC
-# 2013
-
-LWCB Framework script to generate all neccessary files to allow WATFLOOD model to execute. 
-
-This is 1 of 2 scripts; the other script LWCB_Framework_Accept_Model_Results.py is used to 
-create a final model folder containg various output files, graphics and a HEC-DSS db containing
-the forecasted simulated resin.csv data.
+James Bomhof
+August 30, 2016
 
 
-Allows user to perform a 2 year spinup period prior to model run. User can perform a default
-forecast or choose to apply a state variable update (only permitted from jan0101) to 3 different areas (precipitation scale factor,
-use observed streamflow or provide a new snowcourse file.)
+Runs the main operations for the WATFLOOD framework. Requires two arguments to be passed in when calling
+the script.
+-c 'full path to the configuration file'
+-m 'Type of model run: Spinup,DefaultHindcast,HindcastAdjust,Forecast'
 
-Pulls data from LWCB db, downloads CAPA and Forecasted data from EC online repository.
-
-All settings read from a configuration file that is user editable.
-
-For each model execution, a series of R script generated graphics are produced & written to 
-../diagnostic. User can decide if state variable adjustment is required. If not, user runs
-LWCB_Framework_Accept_Model_Results.py
+Functions are defined in the FrameworkLibrary.py file
 
 """
 
@@ -169,7 +157,7 @@ def main():
           input.append([config_file,member_repository])
           
         pool = multiprocessing.Pool(processes = len(members) + 1)
-        pool.map(execute_and_plot_forecast,input)
+        pool.map(analyze_and_plot_forecast,input)
         
         #subprocess.call("Rscript C:\WR_Ensemble\A_MS\Repo\scripts\EnsembleEnsemble_process.R",shell=True)
         
