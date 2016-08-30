@@ -1,0 +1,268 @@
+#*****************************************
+#Script to process multiple WATFLOOD met-ensemble forecasts, creating an 'ensemble of ensembles'
+#that captures the hydrological, bias correction, and meterological uncertainty.
+#written by: James Bomhof
+#date: 2016.01.11
+#******************************************
+rm(list=ls())
+
+#check and install packages if required
+list.of.packages <- c("ggplot2","zoo","xts","RODBC","grid")
+new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
+if(length(new.packages)) install.packages(new.packages,repos='http://cran.us.r-project.org')
+require(grid)
+#Get arguments
+args <- commandArgs(TRUE)
+cat(paste("1 - ",script_directory <- args[1]),"\n") #working directory
+cat(paste("1 - ",forecast_directory <- args[2]),"\n") #forecast directory
+#script_directory <- "C:/WR_Ensemble/A_MS/Repo/scripts"
+#forecast_directory <- "C:/WR_Ensemble/HydForecastStorage/forecast_20160524"
+
+substrRight <- function(x, n){
+  substr(x, nchar(x)-n+1, nchar(x))
+}
+forecast_date <- as.Date(substrRight(forecast_directory,8),format="%Y%m%d")
+
+
+
+#set working directory and load libraries
+setwd(script_directory)
+source("rlib/libWATFLOOD_IO.R")
+source("rlib/libENSIM_IO.R")
+source("rlib/LWSlib.R")
+library(plyr)
+
+
+#Define Functions***************************************************************
+getsingleforecast <- function(file_name,reservoir){
+  resin <- ReadSplCsvWheader(file_name)
+  output <- resin$estimated.table[,reservoir]
+  return(output)
+}
+
+getmetensembleforecast <- function(reservoir=1,file_paths){
+  forecast.list <- lapply(file_paths,getsingleforecast,reservoir=reservoir)
+  forecast.df <- do.call(rbind,forecast.list)
+  return(forecast.df)
+}
+
+
+getbias <- function(lookback=3,reservoir=1,hindcast){
+  daysinhindcast <-nrow(hindcast$observed.table)
+  observed <- hindcast$observed.table[(daysinhindcast-lookback+1):daysinhindcast,reservoir]
+  estimated <- hindcast$estimated.table[(daysinhindcast-lookback+1):daysinhindcast,reservoir]
+  bias <- mean(observed) - mean(estimated) #positive means observed is higher than estimated
+  return(bias)
+}
+
+applyreservoirbias <-  function(lookback,reservoir,hindcast,forecast){
+  bias <- getbias(lookback, reservoir, hindcast)
+  forecast.reservoir <- forecast[[reservoir]] + bias
+}
+
+getbiasedforecasts <- function(reservoir,hindcast,forecast){
+  ensembleforecast.list <- lapply(c(3,7,12),applyreservoirbias,reservoir,hindcast,forecast)
+  ensembleforecast.df <- do.call(rbind,ensembleforecast.list)
+  
+  #append hindcast
+  rows <- nrow(ensembleforecast.df)
+  
+  rep.row<-function(x,n){
+    matrix(rep(x,each=n),nrow=n)
+  }
+  
+  hindcast_append <- rep.row(hindcast$estimated.table[[reservoir]],rows)
+  ensembleforecast.df <- as.data.frame(cbind(hindcast_append,ensembleforecast.df))
+  names(ensembleforecast.df) <- seq(from=hindcast$date.time[1], to = hindcast$date.time[length(hindcast$date.time)] + 10, by=1)
+  return(ensembleforecast.df)
+}
+
+
+getbiasedmembers <- function(member,forecast_directory){
+  #define file paths
+  member_directory <- file.path(forecast_directory,member)
+  file_names <- list.files(path=member_directory,pattern = paste0("resin","[0-9]" ))
+  file_paths <- file.path(member_directory,file_names)
+  
+  hindcast_name <- list.files(path=member_directory,pattern = paste0("resin","_" ))
+  hindcast_path <- file.path(member_directory,hindcast_name)
+  #get the forecast
+  forecast <- lapply(1:7,getmetensembleforecast,file_paths=file_paths)
+  names(forecast) <- ReadSplCsvWheader(file_paths[1])$stations
+  
+  #get the hindcast
+  hindcast <- ReadSplCsvWheader(hindcast_path)
+    
+  #apply bias corrections to the forecast
+  newforecast <- lapply(1:7,getbiasedforecasts,hindcast,forecast)
+  names(newforecast) <- hindcast$stations
+  
+  return(newforecast)
+}
+
+combinemembers <- function(allmembers){
+  num_members <- length(allmembers)
+  if(num_members == 1){result = mapply(rbind,allmembers[[1]],SIMPLIFY = FALSE)}
+  if(num_members == 2){result = mapply(rbind,allmembers[[1]],allmembers[[2]],SIMPLIFY=FALSE)}
+  if(num_members == 3){result = mapply(rbind,allmembers[[1]],allmembers[[2]],allmembers[[3]],SIMPLIFY=FALSE)}
+  if(num_members == 4){result = mapply(rbind,allmembers[[1]],allmembers[[2]],allmembers[[3]],allmembers[[4]],SIMPLIFY=FALSE)}
+  if(num_members == 5){result = mapply(rbind,allmembers[[1]],allmembers[[2]],allmembers[[3]],allmembers[[4]],allmembers[[5]],SIMPLIFY=FALSE)}
+  if(num_members == 6){result = mapply(rbind,allmembers[[1]],allmembers[[2]],allmembers[[3]],allmembers[[4]],allmembers[[5]],allmembers[[6]],SIMPLIFY=FALSE)}
+  if(num_members == 7){result = mapply(rbind,allmembers[[1]],allmembers[[2]],allmembers[[3]],allmembers[[4]],allmembers[[5]],allmembers[[6]],allmembers[[7]],SIMPLIFY=FALSE)}
+  if(num_members == 8){result = mapply(rbind,allmembers[[1]],allmembers[[2]],allmembers[[3]],allmembers[[4]],allmembers[[5]],allmembers[[6]],allmembers[[7]],allmembers[[8]],SIMPLIFY=FALSE)}
+  if(num_members == 9){result = mapply(rbind,allmembers[[1]],allmembers[[2]],allmembers[[3]],allmembers[[4]],allmembers[[5]],allmembers[[6]],allmembers[[7]],allmembers[[8]],allmembers[[9]],SIMPLIFY=FALSE)}
+  if(num_members == 10){result = mapply(rbind,allmembers[[1]],allmembers[[2]],allmembers[[3]],allmembers[[4]],allmembers[[5]],allmembers[[6]],allmembers[[7]],allmembers[[8]],allmembers[[9]],allmembers[[10]],SIMPLIFY=FALSE)}
+  if(num_members == 11){result = mapply(rbind,allmembers[[1]],allmembers[[2]],allmembers[[3]],allmembers[[4]],allmembers[[5]],allmembers[[6]],allmembers[[7]],allmembers[[8]],allmembers[[9]],allmembers[[10]],allmembers[[11]],SIMPLIFY=FALSE)}
+  
+  return(result)
+}
+
+
+
+getpercentile <- function(df){
+  probs=c(0,.05,.25,.5,.75,.95,1)
+  output.df <- apply(df,2,quantile,probs=probs)
+  return(output.df)
+}
+
+getforecastpercentile <- function(forecast_member,member_name){
+
+  output.list <- lapply(forecast_member,getpercentile)
+  output.df <- melt(output.list,id.vars=rownames(output.list))
+  output.df <- data.frame(Day=as.Date(output.df[,2]),
+                          Value = output.df[,3],
+                          Config = rep(member_name,nrow(output.df)),
+                          Perc = output.df[,1],
+                          Res = output.df[,4])
+
+  output.df <- dcast(output.df, Day + Config + Res ~ Perc, value.var = "Value")
+  names(output.df) <- paste0("x",gsub("%","",names(output.df)))
+  output <- list(output.df)
+}
+
+
+list.dirs <- function(path=".", pattern=NULL, all.dirs=FALSE,
+                      full.names=FALSE, ignore.case=FALSE) {
+  # use full.names=TRUE to pass to file.info
+  all <- list.files(path, pattern, all.dirs,
+                    full.names=TRUE, recursive=FALSE, ignore.case)
+  dirs <- all[file.info(all)$isdir]
+  # determine whether to return full names or just dir names
+  if(isTRUE(full.names))
+    return(dirs)
+  else
+    return(basename(dirs))
+}
+
+
+
+
+#Main Script******************************************************************************
+#membernames <- c("A_MS","50B","50C","50D","50E","50F","50G","50H","51A","51B","51C")
+membernames <- list.dirs(forecast_directory)
+allmembers.list <- lapply(membernames,getbiasedmembers,forecast_directory)
+
+#get all the raw data into single output
+allmembers <- combinemembers(allmembers.list)
+
+
+
+
+#calculate percentiles from all the forecasts
+combinedforecast.long <- getforecastpercentile(allmembers,"All")[[1]]
+
+
+
+#calculate percentiles on individual forecasts
+members.long <- mapply(getforecastpercentile,allmembers.list,membernames)
+members.long <- do.call(rbind,members.long)
+
+
+
+
+#get observed data
+LWquerydf <- function(station,Range,DBSource){
+  data <- LWquery(station,Range,DBSource)
+  output <- data.frame(Day=index(data),Value=as.numeric(coredata(data)))
+}
+
+stations <- c(149,164,168,157,172,176,180)
+observed <- lapply(stations,LWquerydf,Range="2016-01-01/",DBSource="Z:/LWS_Db/LWCB.mdb")
+res_names <- c("LOW","LS","LSJ","LLC","NamakanL","RainyL","Umfreville")
+names(observed) <- res_names
+
+observed <- ldply(observed)
+observed.df <- data.frame(Day = as.Date(observed$Day),
+                          Config = rep("Observed",nrow(observed)),
+                          Res = observed$.id,
+                          observed$Value,observed$Value,observed$Value,observed$Value,observed$Value,observed$Value,observed$Value)
+
+
+
+#append members, combined forecast & observed
+names(observed.df) <- names(members.long)
+members.long <- rbind(members.long,combinedforecast.long,observed.df)
+
+
+
+
+#subset to plot
+member.plot <- members.long[members.long$xRes=="LOW",]
+
+
+
+#plot
+inflowplot <- function(member.plot){
+  p <- ggplot(data=member.plot, aes_string(x="xDay",y="x50",ymin="x5",ymax="x95")) +
+    geom_ribbon(data=member.plot[member.plot$xConfig=="All" & member.plot$xDay>=forecast_date,],aes(fill="5%-95%")) +
+    geom_ribbon(data=member.plot[member.plot$xConfig=="All" & member.plot$xDay>=forecast_date,],aes_string(fill="'25%-75%'",ymin="x25",ymax="x75")) +
+    geom_line(data=member.plot[member.plot$xConfig=="All" & member.plot$xDay>=forecast_date,],aes(col="Med")) +
+    geom_line(data=member.plot[member.plot$xConfig=="Observed" & member.plot$xDay<forecast_date,],aes(col="Obs")) +
+    geom_line(data=member.plot[member.plot$xConfig=="A_MS",],aes(col="Mod1")) +
+    geom_line(data=member.plot[member.plot$xConfig=="50D",],aes(col="Mod12")) +
+    geom_vline(xintercept=as.numeric(forecast_date),col="gray40") +
+    theme_bw() + xlab("Date") + ylab("1-Day Inflow (m3/s)") + ggtitle(member.plot$xRes[1]) +
+    scale_y_continuous(limits=c(0,max(member.plot$x50,na.rm=T))) +
+    scale_fill_manual(name = '', values=c('gray25','gray50')) +
+    scale_colour_manual(name = '', 
+                        values =c('Med' = 'red','Obs'='black','Mod1'='#41b6c4','Mod12'='#225ea8')) +
+    theme(legend.position=c(0.0,0.7),legend.justification=c(0,0),legend.box.just="left",legend.box='vertical',legend.direction='horizontal',
+          legend.key.size=unit(.4,"cm"),panel.grid.major=element_line(colour="#808080",size=0.4))
+  return(p)
+}
+
+m=1
+for(m in 1:7){
+  member.plot <- members.long[members.long$xRes==res_names[m],]
+  assign(paste0("p",m),inflowplot(member.plot))
+}
+
+
+#Export plots
+png(file.path(forecast_directory,"1-dayinflows_1.png"),res=150,width=2000,height=1300)
+suppressWarnings(multiplot(p4,p6,p5,p1,cols=2))
+garbage<-dev.off()
+
+png(file.path(forecast_directory,"1-dayinflows_2.png"),res=150,width=2000,height=1300)
+suppressWarnings(multiplot(p2,p7,p3,cols=2))
+garbage<-dev.off()
+
+png(file.path(forecast_directory,"LWLS.png"),res=150,width=1000,height=1300)
+suppressWarnings(multiplot(p1,p2,cols=1))
+garbage<-dev.off()
+
+#export to csv (in consistent format to old forecasts)
+
+output <- data.frame()
+for(n in 1:7){
+  member.data <- rbind(members.long[members.long$xRes==res_names[n]&members.long$xConfig=="Observed"&members.long$xDay<forecast_date&members.long$xDay>(forecast_date-15),],
+                       members.long[members.long$xRes==res_names[n]&members.long$xConfig=="All"&members.long$xDay>=forecast_date,])
+  tmp <-t(member.data[,c(-1:-3)])
+  rownames(tmp) <- paste0(res_names[n],rownames(tmp))
+  colnames(tmp) <- member.data$xDay
+  output <- rbind(output,tmp)
+}
+names(output) <- member.data$xDay
+
+#export csv
+write.csv(output,file.path(forecast_directory,"Prob_forecast.csv"))
