@@ -79,6 +79,8 @@ r_graphics_directory = os.path.join(repository_directory,"diagnostic")
 # forecast start date
 forecast_date = parameter_settings["forecast_date"]
 
+ensemble_members = parameter_settings["ensemble_members"].split(',')
+
 # configuration file extension. no dot.
 configuration_extension = "txt"
 
@@ -87,7 +89,7 @@ configuration_extension = "txt"
 os.chdir(repository_directory)
 
 
-def create_forecast_folder(output_directory):
+def create_forecast_folder(output_directory,forecast_date):
     """
     create unique timestamped folder to hold each execution of operational framework.
     
@@ -95,7 +97,7 @@ def create_forecast_folder(output_directory):
     """
     
     # get local time object for timestamp
-    tmp_time = time.localtime()
+    tmp_time = time.strptime(forecast_date, "%Y/%m/%d")
     # out name for directory
     dir_name = "forecast_%02d%02d%02d" %(tmp_time.tm_year,tmp_time.tm_mon,tmp_time.tm_mday)
     
@@ -119,37 +121,31 @@ def copytree(src, dst, symlinks=False, ignore=None):
             shutil.copy2(s, d)
 
 # - create time stamped directory
-write_directory,name_time = create_forecast_folder(output_directory)
 
-# - copy files
+write_directory,name_time = create_forecast_folder(output_directory,forecast_date)
+ms_directory = os.path.dirname(repository_directory)
+ms = os.path.basename(ms_directory)
+main_directory = os.path.dirname(ms_directory)
+
+ensemble_members.append(ms)
+
+#remove any whitespaces
+ensemble_members = filter(None, ensemble_members)
+
+
+
+# # - copy files
 #copy WATFLOOD forecast files
-copytree(src=os.path.join(repository_directory,forecast_directory),dst=write_directory)
-#Copy diagnostic plots, csvs and HECDSS
-copytree(os.path.join(repository_directory,"diagnostic"),write_directory)
-#Copy reservoir settings
-copytree(os.path.join(repository_directory,"wpegr/resrl"),write_directory)
-#copy parameter file
-shutil.copyfile(os.path.join(repository_directory,"wpegr/basin/wpegr_par.csv"),os.path.join(write_directory,"wpegr_par.csv"))
-#copy web index file
-shutil.copyfile(os.path.join(repository_directory,"lib/index.php"),os.path.join(write_directory,"index.php"))
-#copy configuration file
-shutil.copyfile(configuration_file,os.path.join(write_directory,"configuration.txt"))
+for i in ensemble_members:
+  dst_path = os.path.join(write_directory,i)
+  if not os.path.exists(dst_path):
+    os.mkdir(dst_path)
+  copytree(src=os.path.join(main_directory,i,"Repo_forecast",forecast_directory),dst=dst_path)
+  shutil.copyfile(os.path.join(main_directory,i,"Repo_hindcast","wpegr","results","resin.csv"),os.path.join(dst_path,"resin_hindcast.csv"))
+  shutil.copyfile(os.path.join(main_directory,i,"Repo_hindcast","wpegr","results","spl.csv"),os.path.join(dst_path,"spl_hindcast.csv"))
 
+#plot and export key data
+cmd = "Rscript C:\WR_Ensemble\A_MS\Repo\scripts\ProcessForecast.R C:\WR_Ensemble\A_MS\Repo\scripts " + write_directory
+print cmd 
+subprocess.call(cmd)
 
-text_file = open(os.path.join(write_directory,"Comments.txt"),"w")
-text_file.write("Forecast: %02d%02d%02d_%02d%02d" %(name_time.tm_year,name_time.tm_mon,name_time.tm_mday,name_time.tm_hour,name_time.tm_min))
-text_file.write("/n Calibration D")
-text_file.close()
-# copy spl.csv from model_repository/model_directory/results
-# shutil.copy(os.path.join(repository_directory,model_directory,"results","spl.csv"),write_directory)
-# copy r generate graphics from model_repositroy/diagnostics
-# files = glob.glob(os.path.join("diagnostic","*.png"))
-# for file in files:
-    # shutil.copy(file,write_directory)
-# copy configuration file(s) from directory above model_repository
-# files = glob.glob(os.path.join("../","*." + configuration_extension))
-# for file in files:
-    # shutil.copy(file,write_directory)
-
-# - create new dss & write resin.csv data.
-# load_data_dss(repository_directory,model_directory,scripts_directory,write_directory,forecast_date,name_directory,name_directory,hec_writer_script)

@@ -53,7 +53,7 @@ def main():
     ## read configuration file
     config_file = ConfigParse(data.Config) #config_file is a class that stores all parameters
     model_run = data.ModelRun
-    members = filter(None,config_file.ensemble_members.split(","))
+    members = filter(None,config_file.ensemble_members.split(",")) #find out which hydr. ensemble members to run
 
     #= set inital working directory to repository root folder
     os.chdir(config_file.repository_directory)
@@ -171,7 +171,7 @@ def main():
         pool = multiprocessing.Pool(processes = len(members) + 1)
         pool.map(execute_and_plot_forecast,input)
         
-        subprocess.call("Rscript C:\WR_Ensemble\A_MS\Repo\scripts\EnsembleEnsemble_process.R",shell=True)
+        #subprocess.call("Rscript C:\WR_Ensemble\A_MS\Repo\scripts\EnsembleEnsemble_process.R",shell=True)
         
 
 

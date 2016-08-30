@@ -1,3 +1,7 @@
+'''
+Library of functions that are called by LWCB_Framework_Run_Model.py
+'''
+
 import datetime
 import os
 import subprocess
@@ -733,13 +737,12 @@ def grib2r2c(repos,filePath,datestamp,startHour,repo_path):
           
 
 
-#forecast_date,capa_start_hour,forecast_start_hour,repo_dir,configuration_file
-#start_date,    capa_hour, forecast_hour,repo_dir
+
 def query_ec_datamart_forecast(config_file):
     """
     query ec datamart to download and convert data. 
-    
-    using neil's scripts.
+    The function looks at the ':SourceData' parameters to determine where to
+    download the forecasts and how to convert them
     """
     print "Getting forecast data..."
     split_date = config_file.forecast_date.split("/")
@@ -771,7 +774,7 @@ def query_ec_datamart_forecast(config_file):
       elif getRepos:
         tokens.pop(0)
         repos.append(tokens)
-    #print repos[7]
+    
     
 
     # Replace special characters (not %T yet) with new values
@@ -938,12 +941,22 @@ def generate_run_event_files_forecast(config_file,members):
     for i,metfile in enumerate(met_list):
       print "Running Scenario: " + metfile[13:17]
       # generate the forecast event file
+      
+      #assign the temperature file name, if it doesn't exist, use the most recent working temperature file
+      try:
+        tem_list[i]
+      except IndexError:
+        print "using default temp file \n"
+      else:
+        new_temperature_file = tem_list[i]
+        new_tempdiff_file = dif_list[i]
+        print "sure, it was defined."
       cmd = ["python",os.path.join(config_file.repository_directory,config_file.scripts_directory,"EventGenerator.py"),"-FS",config_file.forecast_date,
           "-f",":resumflg","y",
           "-f",":tbcflg","n",
           "-f",":griddedrainfile","radcl\\" + metfile, 
-          "-f",":griddedtemperaturefile","tempr\\" + tem_list[i],
-          "-f",":griddeddailydifference","tempr\\" + dif_list[i],
+          "-f",":griddedtemperaturefile","tempr\\" + new_temperature_file,
+          "-f",":griddeddailydifference","tempr\\" + new_tempdiff_file,
           "-fd","1900/01/01","-f",":noeventstofollow","0",
           config_file.historical_start_date]
       subprocess.call(cmd,shell=True)
@@ -1537,123 +1550,3 @@ def generate_dss(hecdss_vue_path,r_script_directory,hec_writer_script):
 
     
 
-# ===== main functions to run spinup & forecast
-def model_spinup(config_file):
-    # creates event files required
-    generate_spinup_event_files(config_file,
-                                config_file.spinup_start_date, 
-                                config_file.spinup_end_date)
-    
-    
-    # # generic files built from template for level/snow/moist
-    generate_spinup_generic_files(config_file,
-                                  config_file.spinup_start_date,
-                                  config_file.spinup_end_date)
-    
-    # query lwcb data
-    query_lwcb_db(config_file,
-                  config_file.spinup_start_date,
-                  config_file.spinup_end_date)
-    
-    # spinup using capa
-    if config_file.use_capa == "True":
-        spinup_capa(config_file,
-                    config_file.spinup_start_date,
-                    config_file.spinup_end_date)
-        
-    # spinup using GEMTemps
-    if config_file.use_GEMTemps == "True":
-        spinup_GEMTemps(config_file,
-                        config_file.spinup_start_date,
-                        config_file.spinup_end_date)
-    
-    # generate distributed data
-    calculate_distributed_data(config_file,
-                               snow="False",
-                               moist="False",)
-    
-    # execute watflood
-    execute_watflood(config_file)
-
-
-
- 
-def model_hindcast(config_file):
-    """
-    default hindcast. 
-    """
-    
-    # query lwcb data
-    query_lwcb_db(config_file,
-                  start_date = config_file.historical_start_date,
-                  end_date = config_file.historical_end_date)
-    
-    # query ec_datamart
-    query_ec_datamart_hindcast(config_file)
-    
-    # generate watflood text files, initial event file used only for distrubtion executables.
-    generate_distribution_event_file(config_file,
-                                     resume_toggle = "True", 
-                                     tbc_toggle = "True")
-      
-    # calculate distribute temperature,snow & moisture. precipitation dependent upon if capa selected by user.
-    calculate_distributed_data(config_file,
-                               snow="False",
-                               moist="False",)
-      
-    # execute watflood
-    execute_watflood(config_file)
-    
-
-    
-def adjust_hindcast(precip_toggle,temp_toggle,repository_directory,scripts_directory):
-    """
-    applies adjustments to r2c files, executes WATFLOOD and plots results
-    """
-     
-    if precip_toggle == "True":
-    #execute precipadjust rscript
-      tmp = historical_start_date.split("/")
-      met_file = "%s%s%s" %(tmp[0],tmp[1],tmp[2]) + "_met.r2c"
-      met_location = os.path.join(model_directory,"radcl",met_file)
-      precipadjust_location = os.path.join(repository_directory,"lib",precip_adjust)
-
-      cmd = [rscript_path,os.path.join(r_script_directory,r_script_r2cadjust),r_script_directory, met_location, precipadjust_location, "precipmult" ]
-      subprocess.call(cmd,shell=True)
-    
-    if temp_toggle == "True":
-    #execute tempadjust rscript
-      tmp = historical_start_date.split("/")
-      tem_file = "%s%s%s" %(tmp[0],tmp[1],tmp[2]) + "_tem.r2c"
-      tem_location = os.path.join(model_directory,"tempr",tem_file)
-      tempadjust_location = os.path.join(repository_directory,"lib",temp_adjust)
-      
-      cmd = [rscript_path,os.path.join(r_script_directory,r_script_r2cadjust),r_script_directory, tem_location, tempadjust_location, "tempadd" ]
-      subprocess.call(cmd,shell=True)
-      
-    # execute watflood
-    execute_watflood(config_file)
-    
-    #create plots
-    generate_analysis_graphs(forecast_date,historical_start_date,model_directory,"NA","NA",r_script_directory,r_graphics_directory,r_script_analysis_resin,r_script_analysis_spl,"NA","NA","False")
-    
-    
-    
-def model_forecast(config_file):
-    """
-    default forecast. no changes to state variables. runs start to finish with no interruptions
-    """
-
-    # generate forecast files
-    generate_forecast_files(config_file)
-    
-    # query ec_datamart
-    query_ec_datamart_forecast(config_file)
-      
-    # move files to appropriate location within model directory.
-    update_model_folders(config_file)
-      
-    # overwrite event file for model run. includes historic and forecast**********************
-    #loop through and change the event file for each forecast
-    #WATFLOOD is executed in this function
-    generate_model_event_files_forecast(config_file)

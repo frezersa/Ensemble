@@ -106,7 +106,7 @@ dest.InitAttributes()
 # #loop to convert each frame from grib2 to r2c and append to working r2c file
 i = 0
 while (todayEnd > endtimeframe):
-         i = i + 1
+         i = i + 3
          #iterate r2c frame timestep
          timestamp_odd = endtimeframe.strftime("%Y%m%d%H")
          endtimeframe = endtimeframe + datetime.timedelta(hours = 3)
