@@ -636,6 +636,7 @@ def build_dir(directory):
     
 def repo_pull_nomads(repos, filePath, timestamp, repo_path):
     """
+    downloads forecast data from nomads repository using wget
     
         Args:
         repos: the source data in a single source from the config file, see below for example
@@ -735,9 +736,9 @@ def repo_pull_nomads(repos, filePath, timestamp, repo_path):
 
     
     
-def repo_pull(repos,filePath,timestamp,repo_path):
+def repo_pull_datamart(repos,filePath,timestamp,repo_path):
     """
-    Downloads data from online repository using wget
+    Downloads forecast data from online repository using wget
     
     Args:
         repos: the source data in a single source from the config file, see below for example
@@ -794,8 +795,27 @@ def repo_pull(repos,filePath,timestamp,repo_path):
       print "\n"
           
           
-          
-def grib2r2c(repos,filePath,datestamp,startHour,repo_path):
+def grib2r2c_nomads(repos, filePath, datestamp, startHour, repo_path):
+    """
+    Function to conver the files that have been downloaded via the repo_pull_nomads function
+    """
+
+    #get information for source file
+    #for temperature and precipitation
+        #for CMC and GFS
+            #for each ensemble member (1-20)
+                #get first file and conver to r2c
+                #for each of the next timesteps
+                    #get file and convert&append to existing r2c
+                #save final r2c file to correct path
+
+
+
+
+
+
+
+def grib2r2c_datamart(repos,filePath,datestamp,startHour,repo_path):
    
 
       #Initialize some usful variables
@@ -1046,49 +1066,47 @@ def query_ec_datamart_forecast(config_file):
           repos_parent[k][i][j] = repos_parent[k][i][j].replace('%H', startHour)
           
     
-    # forecast data
-    # pull data
-    
-
+    #Download the forecast data to directory specified in the config file
     print "Downloading Data.... \n"
     for k in range(len(repos_parent)):
       print "Downloading Forecast File(s): \n" + str(repos_parent[k][1]) 
       repo_pull_nomads(repos_parent[k], filePath,timestamp, config_file.grib_forecast_repo)
       print "\n"
 
-
-    # existing_metfiles = os.listdir(filePath+"/../wxData/met")
-    # existing_temfiles = os.listdir(filePath+"/../wxData/tem")
-    # pattern = str(datestamp + ".*r2c")
+    #check if r2c files exist in the working directory, only convert from grib2 to r2c if the 
+    #r2c files don't already exist
+    existing_metfiles = os.listdir(filePath+"/../wxData/met")
+    existing_temfiles = os.listdir(filePath+"/../wxData/tem")
+    pattern = str(datestamp + ".*r2c")
     
-    # need_to_convert_met = "True"
-    # for file in existing_metfiles:
-        # if re.match(pattern, file):
-          # need_to_convert_met = "False"
-          # break
+    need_to_convert_met = "True"
+    for file in existing_metfiles:
+        if re.match(pattern, file):
+          need_to_convert_met = "False"
+          break
           
-    # need_to_convert_tem = "True"
-    # for file in existing_temfiles:
-        # if re.match(pattern, file):
-          # need_to_convert_tem = "False"
-          # break
+    need_to_convert_tem = "True"
+    for file in existing_temfiles:
+        if re.match(pattern, file):
+          need_to_convert_tem = "False"
+          break
     
-    # if need_to_convert_met == "False" and need_to_convert_tem == "False":
-        # print "Converted Files already exist in wxData/met & tem directories,"
-        # print "using those files, please delete if you wish to redo grib conversion"
-    # else:
-      # # convert to watflood r2c
-      # # first remove old r2c files
-      # shutil.rmtree(filePath+"/../wxData/met")
-      # shutil.rmtree(filePath+"/../wxData/tem")
-      # os.mkdir(filePath+"/../wxData/met")
-      # os.mkdir(filePath+"/../wxData/tem")
+    if need_to_convert_met == "False" and need_to_convert_tem == "False":
+        print "Converted Files already exist in wxData/met & tem directories,"
+        print "using those files, please delete if you wish to redo grib conversion"
+    else:
+      # convert to watflood r2c
+      # first remove old r2c files from temporary directory
+      shutil.rmtree(filePath+"/../wxData/met")
+      shutil.rmtree(filePath+"/../wxData/tem")
+      os.mkdir(filePath+"/../wxData/met")
+      os.mkdir(filePath+"/../wxData/tem")
 
       
-      # # print "Converting Data.... \n"
-      # for k in range(len(repos_parent)):
-        # print "Converting Forecast File(s): \n" + str(repos_parent[k][1]) 
-        # grib2r2c(repos_parent[k], filePath, datestamp, startHour, config_file.grib_forecast_repo)
+      # print "Converting Data.... \n"
+      for k in range(len(repos_parent)):
+        print "Converting Forecast File(s): \n" + str(repos_parent[k][1]) 
+        grib2r2c_nomads(repos_parent[k], filePath, datestamp, startHour, config_file.grib_forecast_repo)
         
        
     
