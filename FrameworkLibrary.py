@@ -636,34 +636,102 @@ def build_dir(directory):
     
 def repo_pull_nomads(repos, filePath, timestamp, repo_path):
     """
+    
+        Args:
+        repos: the source data in a single source from the config file, see below for example
+        filePath: the filepath where the scripts are run ex) Q:\WR_Ensemble_dev\A_MS\Repo\scripts
+        timestamp: datestamp + start hour, this is currently the config.file date with a static start hour of '00'
+        repo_path: path to store all the repo data; currently 'config_file.grib_forecast_repo'
+        
+    Website:
     http://nomads.ncep.noaa.gov/txt_descriptions/CMCENS_doc.shtml
-    
-    download for acumulated rain (CMC):
-    http://nomads.ncep.noaa.gov/cgi-bin/filter_cmcens.pl?file=cmc_gec00.t00z.pgrb2af06&lev_surface=on&var_APCP=on&var_TMP=on&subregion=&leftlon=-98&rightlon=-88&toplat=54&bottomlat=46&dir=%2Fcmce.20160830%2F00%2Fpgrb2a
-    http://nomads.ncep.noaa.gov/cgi-bin/filter_cmcens.pl?file=cmc_gec00.t00z.pgrb2af384&lev_surface=on&var_APCP=on&var_TMP=on&subregion=&leftlon=-98&rightlon=-88&toplat=54&bottomlat=46&dir=%2Fcmce.20160830%2F00%2Fpgrb2a
-    http://nomads.ncep.noaa.gov/cgi-bin/filter_cmcens.pl?file=cmc_gep20.t00z.pgrb2af06&lev_surface=on&var_APCP=on&var_TMP=on&subregion=&leftlon=-98&rightlon=-88&toplat=54&bottomlat=46&dir=%2Fcmce.20160830%2F00%2Fpgrb2a
-    http://nomads.ncep.noaa.gov/cgi-bin/filter_cmcens.pl?file=cmc_gep20.t00z.pgrb2af384&lev_surface=on&var_APCP=on&var_TMP=on&subregion=&leftlon=-98&rightlon=-88&toplat=54&bottomlat=46&dir=%2Fcmce.20160830%2F00%2Fpgrb2a
-    
-    
-    download for temp (CMC):
-    http://nomads.ncep.noaa.gov/cgi-bin/filter_cmcens.pl?file=cmc_geavg.t00z.pgrb2af00&lev_2_m_above_ground=on&var_TMP=on&subregion=&leftlon=-98&rightlon=-88&toplat=54&bottomlat=46&dir=%2Fcmce.20160830%2F00%2Fpgrb2a
-    
-    download for acumulated rain (GFS):
-    http://nomads.ncep.noaa.gov/cgi-bin/filter_gens.pl?file=gec00.t00z.pgrb2f06&lev_surface=on&var_APCP=on&subregion=&leftlon=-98&rightlon=-88&toplat=54&bottomlat=46&dir=%2Fgefs.20160830%2F00%2Fpgrb2
-    http://nomads.ncep.noaa.gov/cgi-bin/filter_gens.pl?file=gec00.t00z.pgrb2f384&lev_surface=on&var_APCP=on&subregion=&leftlon=-98&rightlon=-88&toplat=54&bottomlat=46&dir=%2Fgefs.20160830%2F00%2Fpgrb2
-    http://nomads.ncep.noaa.gov/cgi-bin/filter_gens.pl?file=gep20.t00z.pgrb2f06&lev_surface=on&var_APCP=on&subregion=&leftlon=-98&rightlon=-88&toplat=54&bottomlat=46&dir=%2Fgefs.20160830%2F00%2Fpgrb2
-    http://nomads.ncep.noaa.gov/cgi-bin/filter_gens.pl?file=gep20.t00z.pgrb2f384&lev_surface=on&var_APCP=on&subregion=&leftlon=-98&rightlon=-88&toplat=54&bottomlat=46&dir=%2Fgefs.20160830%2F00%2Fpgrb2
-
-
-
-    download for temp (GFS):
+    http://nomads.ncep.noaa.gov/cgi-bin/filter_cmcens.pl?file=cmc_gep00.t00z.pgrb2af384&lev_surface=on&var_APCP=on&var_TMP=on&subregion=&leftlon=-98&rightlon=-88&toplat=54&bottomlat=46&dir=%2Fcmce.20160830%2F00%2Fpgrb2a
     http://nomads.ncep.noaa.gov/cgi-bin/filter_gens.pl?file=gec00.t00z.pgrb2anl&lev_2_m_above_ground=on&lev_surface=on&var_TMP=on&subregion=&leftlon=-98&rightlon=-88&toplat=54&bottomlat=46&dir=%2Fgefs.20160830%2F00%2Fpgrb2
     
-    
-    
-    
-    
+    #Example repos from config file, note substitution parameters (%X) in :FileName
+   :SourceData  
+   :URL                http://nomads.ncep.noaa.gov/cgi-bin/              
+   :FileName           filter_%S1.pl?file=%S2gep%E.t%Hz.pgrb2af%T&%query&subregion=&leftlon=-98&rightlon=-88&toplat=54&bottomlat=46&dir=%2F%S3.%Y%m%d%2F00%2Fpgrb2a
+   :DeltaTimeStart     6                                                                          
+   :DeltaTimeEnd       240                                                                         
+   :DeltaTimeStep      6                                                                          
+   :StitchTimeStart    6                                                                          
+   :StitchTimeEnd      240                                                                         
+   :Grouping           tem                                                                        
+   :Type               NOMAD_GFS                                                                        
+   :Forecast           3                                                                          
+:EndSourceData
+
     """
+    #build repository directory to store the date's files
+    today_repo_path = repo_path + "/" + timestamp + "/"
+    build_dir(today_repo_path)
+    
+
+    
+
+    
+    for i, url in enumerate(repos[0]): 
+      DeltaTimeStart = int(repos[2][i])
+      DeltaTimeEnd = int(repos[3][i])
+      DeltaTimeStep = int(repos[4][i])
+      Source =  repos[8][i]
+      Grouping = repos[7][i]
+      wget_list = []
+      
+      print 'building list of files for download'
+      for k in range(1,20): #for each ensemble member
+        #set progress bar
+        pbar = k/float(19) * 40
+        sys.stdout.write('\r')
+        # the exact output you're looking for:
+        sys.stdout.write("[%-40s] %d%%" % ('='*int(pbar), pbar/40*100))
+        sys.stdout.flush()
+      
+        for j in range(DeltaTimeStart/DeltaTimeStep,DeltaTimeEnd/DeltaTimeStep + 1): #for each timestep
+        
+            ensemble = str(k).zfill(2) #save ensemble number in 2 digit format
+          
+            #Set timestep and replace in file name
+            DeltaTime = j * DeltaTimeStep
+            name = repos[1][i].replace('%T', str(DeltaTime).zfill(2))
+            
+            #replace the ensemble number in file name
+            name = name.replace('%E',ensemble)
+            
+            #replace the data request in file name
+            if Grouping == 'met':
+                name = name.replace('%query', 'lev_surface=on&var_APCP=on')
+                
+            if Grouping == 'tem':
+                name = name.replace('%query', 'lev_2_m_above_ground=on&var_TMP')   
+
+            #replace the source in the file name (ie. CMC NAEFS, or GFS NAEFS)
+            if Source == 'NOMAD_GFS':
+                name = name.replace('%S1', 'gens')
+                name = name.replace('%S2', '')
+                name = name.replace('%S3', 'gefs')
+                
+            if Source == 'NOMAD_CMC':
+                name = name.replace('%S1', 'cmcens')
+                name = name.replace('%S2', 'cmc_')
+                name = name.replace('%S3', 'cmce')
+                
+            #concatenate and create wget command
+            downloadname = url + name
+            filename = Source + '_' + Grouping + '_' + ensemble + '_' +  str(DeltaTime).zfill(3) + '_' + timestamp + '.grib2'
+            cmd = "wget -q -O " + today_repo_path + filename + " " + '"' + downloadname + '"' + " 2> NUL"
+            
+            #append to wget download list if file doesn't exist locally
+            if not os.path.isfile(today_repo_path + filename): #if file does not exist locally
+                  wget_list.append(cmd)
+                  
+      #now run wget with multiple threads, this speeds up download time considerably
+      print '\nDownloading Files...'
+      pool = multiprocessing.Pool(processes = 20)
+      pool.map(os.system,wget_list)
+
+            
 
     
     
@@ -728,9 +796,7 @@ def repo_pull(repos,filePath,timestamp,repo_path):
           
           
 def grib2r2c(repos,filePath,datestamp,startHour,repo_path):
-    """
-
-    """
+   
 
       #Initialize some usful variables
       Path = os.path.split(os.path.abspath(__file__))[0]
@@ -987,42 +1053,42 @@ def query_ec_datamart_forecast(config_file):
     print "Downloading Data.... \n"
     for k in range(len(repos_parent)):
       print "Downloading Forecast File(s): \n" + str(repos_parent[k][1]) 
-      repo_pull(repos_parent[k], filePath,timestamp, config_file.grib_forecast_repo)
+      repo_pull_nomads(repos_parent[k], filePath,timestamp, config_file.grib_forecast_repo)
       print "\n"
 
 
-    existing_metfiles = os.listdir(filePath+"/../wxData/met")
-    existing_temfiles = os.listdir(filePath+"/../wxData/tem")
-    pattern = str(datestamp + ".*r2c")
+    # existing_metfiles = os.listdir(filePath+"/../wxData/met")
+    # existing_temfiles = os.listdir(filePath+"/../wxData/tem")
+    # pattern = str(datestamp + ".*r2c")
     
-    need_to_convert_met = "True"
-    for file in existing_metfiles:
-        if re.match(pattern, file):
-          need_to_convert_met = "False"
-          break
+    # need_to_convert_met = "True"
+    # for file in existing_metfiles:
+        # if re.match(pattern, file):
+          # need_to_convert_met = "False"
+          # break
           
-    need_to_convert_tem = "True"
-    for file in existing_temfiles:
-        if re.match(pattern, file):
-          need_to_convert_tem = "False"
-          break
+    # need_to_convert_tem = "True"
+    # for file in existing_temfiles:
+        # if re.match(pattern, file):
+          # need_to_convert_tem = "False"
+          # break
     
-    if need_to_convert_met == "False" and need_to_convert_tem == "False":
-        print "Converted Files already exist in wxData/met & tem directories,"
-        print "using those files, please delete if you wish to redo grib conversion"
-    else:
-      # convert to watflood r2c
-      # first remove old r2c files
-      shutil.rmtree(filePath+"/../wxData/met")
-      shutil.rmtree(filePath+"/../wxData/tem")
-      os.mkdir(filePath+"/../wxData/met")
-      os.mkdir(filePath+"/../wxData/tem")
+    # if need_to_convert_met == "False" and need_to_convert_tem == "False":
+        # print "Converted Files already exist in wxData/met & tem directories,"
+        # print "using those files, please delete if you wish to redo grib conversion"
+    # else:
+      # # convert to watflood r2c
+      # # first remove old r2c files
+      # shutil.rmtree(filePath+"/../wxData/met")
+      # shutil.rmtree(filePath+"/../wxData/tem")
+      # os.mkdir(filePath+"/../wxData/met")
+      # os.mkdir(filePath+"/../wxData/tem")
 
       
-      # print "Converting Data.... \n"
-      for k in range(len(repos_parent)):
-        print "Converting Forecast File(s): \n" + str(repos_parent[k][1]) 
-        grib2r2c(repos_parent[k], filePath, datestamp, startHour, config_file.grib_forecast_repo)
+      # # print "Converting Data.... \n"
+      # for k in range(len(repos_parent)):
+        # print "Converting Forecast File(s): \n" + str(repos_parent[k][1]) 
+        # grib2r2c(repos_parent[k], filePath, datestamp, startHour, config_file.grib_forecast_repo)
         
        
     
