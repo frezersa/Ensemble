@@ -41,7 +41,7 @@ def load_grib_file(grib_path):
     
     
     
-def grib_save_r2c(grib_path, r2c_template_path, FileName):
+def grib_save_r2c(grib_path, r2c_template_path, FileName, timestamp = datetime.datetime.now(), convert_mult = False, convert_add = False):
     """
     converts a single grib file to an r2c file. A template file must be given the grib data
     is interpolated onto the template grid (not sure what interpolation technique is used but
@@ -51,6 +51,7 @@ def grib_save_r2c(grib_path, r2c_template_path, FileName):
         grib_object:
         r2c_template:
         FileName:
+        timestamp: date and time of first frame of r2c. Defaults to current day at hour 0 if no value given
     Returns:
         NULL
     """
@@ -66,27 +67,40 @@ def grib_save_r2c(grib_path, r2c_template_path, FileName):
     firstRaster = grib_object.GetChild(0)
     firstRaster.InitAttributes()
     
+    #apply unit converstions
+    if convert_add != False:
+        for k in range(0,firstRaster.GetNodeCount()+1):
+            firstRaster.SetNodeValue(k, firstRaster.GetNodeValue(k) + convert_add)
+            
+    if convert_mult != False:
+        for k in range(0,firstRaster.GetNodeCount()+1):
+            firstRaster.SetNodeValue(k, firstRaster.GetNodeValue(k) * convert_mult)
+    
     #convert grib object to r2c attributes
     firstRaster.ConvertToCoordinateSystem(cs)
+    
+    #set time
+    timeStep = pyEnSim.CEnSimDateTime()
+    timeStep.Set(timestamp.year, timestamp.month, timestamp.day, 0, 0, 0, 0)
     
     #copy data over
     r2c_object.MapObjectDispatch(firstRaster)
     r2c_object.SetCurrentFrameCounter(1)
+    r2c_object.SetCurrentStep(1)
+    r2c_object.SetCurrentStepTime(timeStep)
     
     #Save to file
     r2c_object.SaveToMultiFrameASCIIFile(FileName,0)
     
-    # timestamp not currently used but available
-    # timeStamp.Set(date.year,date.month,date.day,date.hour,0,0,0)
-    # dest.SetCurrentStepTime(timeStamp)
+
     
 
-def grib_save_multiframer2c(grib_path, r2c_template_path, r2cTargetFileName, timeDelta):
+def grib_append_r2c(grib_path, r2c_template_path, r2cTargetFileName, timeDelta, convert_mult = False, convert_add = False):
     """
-    converts a single grib file to an r2c file. A template file must be given so the grib data
+    converts a single grib file and appends to an r2c file. A template file must be given so the grib data
     is interpolated onto the template grid (not sure what interpolation technique is used but
     it seems fairly robust). The template must have the same attributes as the target file. Unfortunately
-    at target attributes cannot be extracted without a time consuming conversion to binary (hence why
+    the target attributes cannot be extracted without a time consuming conversion to binary (hence why
     the small tamplate file is required)
     
     Args:
@@ -108,6 +122,15 @@ def grib_save_multiframer2c(grib_path, r2c_template_path, r2cTargetFileName, tim
     grib_object = load_grib_file(grib_path)
     firstRaster = grib_object.GetChild(0)
     firstRaster.InitAttributes()
+    
+    #apply unit converstions
+    if convert_add != False:
+        for k in range(0,firstRaster.GetNodeCount()+1):
+            firstRaster.SetNodeValue(k, firstRaster.GetNodeValue(k) + convert_add)
+            
+    if convert_mult != False:
+        for k in range(0,firstRaster.GetNodeCount()+1):
+            firstRaster.SetNodeValue(k, firstRaster.GetNodeValue(k) * convert_mult)
     
     #convert grib object to r2c attributes
     firstRaster.ConvertToCoordinateSystem(cs)
@@ -139,20 +162,4 @@ def grib_save_multiframer2c(grib_path, r2c_template_path, r2cTargetFileName, tim
     
 
     
-    
-    
-    
-# grib_object = load_grib_file("Q:\WR_Ensemble_dev\A_MS\Repo\scripts\NOMAD.grib2")
-# r2c_template_object = load_r2c_template("Q:\WR_Ensemble_dev\A_MS\Repo\lib\EmptyGridLL.r2c")
-#grib_save_r2c("Q:\\WR_Ensemble_dev\\A_MS\Repo\\scripts\NOMAD.grib2", "Q:\\WR_Ensemble_dev\\A_MS\\Repo\\scripts\\EmptyGridLL.r2c", "testr2c.r2c")
-
-
-    
-#load_multiframe_attributes("G:\\WR_WTFLD_Framework_D\\Model_Repository\\wpegr\\radcl\\20160909_met_1-00.r2c")
-
-
-
-    
-
-    
-grib_save_multiframer2c("Q:\\WR_Ensemble_dev\\A_MS\Repo\\scripts\NOMAD.grib2", "Q:\\WR_Ensemble_dev\\A_MS\\Repo\\scripts\\EmptyGridLL.r2c", "testr2c.r2c", 6)
+   
