@@ -25,8 +25,10 @@ import re
 import urllib2
 import multiprocessing
 # NRC pyEnSim. must be installed prior to use.
-import pyEnSim.pyEnSim as pyEnSim 
+import pyEnSim.pyEnSim as pyEnSim
+
 from FrameworkLibrary import *
+import post_process
 
 def main():
     class args(object):
@@ -46,7 +48,7 @@ def main():
     #= set inital working directory to repository root folder
     os.chdir(config_file.repository_directory)
 
-        
+    
         
     ## ===== run operational framework
 
@@ -103,7 +105,7 @@ def main():
         query_lwcb_db(config_file,
                       start_date = config_file.historical_start_date,
                       end_date = config_file.historical_end_date)
-        query_ec_datamart_hindcast(config_file)
+        met_process.query_ec_datamart_hindcast(config_file)
         generate_distribution_event_file(config_file,
                                          resume_toggle = "True", 
                                          tbc_toggle = "True")
@@ -133,33 +135,33 @@ def main():
         print "Running Forecast\n"
         
         # Prepare Directories
-        clean_up(config_file.repository_directory,met="False",tem="False")
-        # copy_resume(config_file,"Repo_hindcast")
-        # generate_forecast_files(config_file)
-        query_ec_datamart_forecast(config_file)
-        # update_model_folders(config_file)
+        clean_up(config_file.repository_directory, met = True,tem = True)
+        copy_resume(config_file,"Repo_hindcast")
+        generate_forecast_files(config_file)
+        met_process.query_ec_datamart_forecast(config_file)
+        update_model_folders(config_file)
         
-        # for i in members:
-          # setup_members(config_file,i)
-          # member_path = os.path.join(os.path.dirname(os.path.dirname(config_file.repository_directory)), i)
-          # copy_resume(config_file, "Repo_hindcast", member_path=member_path)
+        for i in members:
+          setup_members(config_file,i)
+          member_path = os.path.join(os.path.dirname(os.path.dirname(config_file.repository_directory)), i)
+          copy_resume(config_file, "Repo_hindcast", member_path=member_path)
           
           
-        # # execute watflood (this calls parallel processing for spl execution
-        # generate_run_event_files_forecast(config_file,members)
+        # execute watflood (this calls parallel processing for spl execution
+        generate_run_event_files_forecast(config_file,members)
 
-        # generate_meteorlogical_graphs(config_file) #only for MotherShip
+        post_process.generate_meteorlogical_graphs(config_file) #only for MotherShip
         
-        # #execute parallel program to generate diagnostics
-        # input = [[config_file,config_file.repository_directory]] #MotherShip input
-        # for j,member in enumerate(members): #member input
-          # member_repository = os.path.join(os.path.dirname(os.path.dirname(config_file.repository_directory)), member,"Repo")
-          # input.append([config_file,member_repository])
+        #execute parallel program to generate diagnostics
+        input = [[config_file,config_file.repository_directory]] #MotherShip input
+        for j,member in enumerate(members): #member input
+          member_repository = os.path.join(os.path.dirname(os.path.dirname(config_file.repository_directory)), member,"Repo")
+          input.append([config_file,member_repository])
           
-        # pool = multiprocessing.Pool(processes = len(members) + 1)
-        # pool.map(analyze_and_plot_forecast,input)
+        pool = multiprocessing.Pool(processes = len(members) + 1)
+        pool.map(analyze_and_plot_forecast,input)
         
-        # #subprocess.call("Rscript C:\WR_Ensemble\A_MS\Repo\scripts\EnsembleEnsemble_process.R",shell=True)
+
         
 
 

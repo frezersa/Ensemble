@@ -69,11 +69,13 @@ def grib_save_r2c(grib_path, r2c_template_path, FileName, timestamp = datetime.d
     
     #apply unit converstions
     if convert_add != False:
-        for k in range(0,firstRaster.GetNodeCount()+1):
+        #print firstRaster.GetNodeCount()
+        for k in range(0,firstRaster.GetNodeCount()):
+            #print firstRaster.GetNodeValue(k)
             firstRaster.SetNodeValue(k, firstRaster.GetNodeValue(k) + convert_add)
             
     if convert_mult != False:
-        for k in range(0,firstRaster.GetNodeCount()+1):
+        for k in range(0,firstRaster.GetNodeCount()):
             firstRaster.SetNodeValue(k, firstRaster.GetNodeValue(k) * convert_mult)
     
     #convert grib object to r2c attributes
@@ -125,11 +127,11 @@ def grib_append_r2c(grib_path, r2c_template_path, r2cTargetFileName, timeDelta, 
     
     #apply unit converstions
     if convert_add != False:
-        for k in range(0,firstRaster.GetNodeCount()+1):
-            firstRaster.SetNodeValue(k, firstRaster.GetNodeValue(k) + convert_add)
+        for k in range(0,firstRaster.GetNodeCount()):
+            firstRaster.SetNodeValue(k, (firstRaster.GetNodeValue(k) + convert_add))
             
     if convert_mult != False:
-        for k in range(0,firstRaster.GetNodeCount()+1):
+        for k in range(0,firstRaster.GetNodeCount()):
             firstRaster.SetNodeValue(k, firstRaster.GetNodeValue(k) * convert_mult)
     
     #convert grib object to r2c attributes
