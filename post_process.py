@@ -9,20 +9,20 @@ import re
     
     
     
-def generate_ensemble_graphs(config_file,member_directory):
+def generate_hydrographs(config_file,member_directory,use_forecast):
     """
     generates R daily graphics based on output of model resin & spl png files. output to /diagnostic folder
     """
     
     print "generating probablistic data"
     cmd = [config_file.rscript_path,
-          os.path.join(config_file.r_script_directory,config_file.r_script_analysis_resin),
-          os.path.join(member_directory,"scripts"),config_file.model_directory]
+          os.path.join(config_file.r_script_directory, config_file.r_script_analysis_resin),
+          os.path.join(member_directory,"scripts"), config_file.model_directory, use_forecast]
     subprocess.call(cmd,shell=True)
     
     cmd = [config_file.rscript_path,
-          os.path.join(config_file.r_script_directory,config_file.r_script_analysis_spl),
-          os.path.join(member_directory,"scripts"),config_file.model_directory]
+          os.path.join(config_file.r_script_directory, config_file.r_script_analysis_spl),
+          os.path.join(member_directory,"scripts"), config_file.model_directory, use_forecast]
     subprocess.call(cmd,shell=True)
     
 

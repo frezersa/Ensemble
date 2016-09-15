@@ -383,15 +383,14 @@ def execute_and_plot_hindcast(input):
     #parse inpute
     config_file = input[0]
     member_directory = input[1]
+    use_forecast = input[2]
     
     #execute hindcast
     execute_watflood(config_file,member_directory)
 
     
     #plot results
-    post_process.generate_analysis_graphs(config_file,
-                            start_date = config_file.historical_start_date,
-                            member_directory = member_directory)
+    post_process.generate_hydrographs(config_file,member_directory,use_forecast) 
   
     #copy results
     print member_directory
@@ -455,7 +454,7 @@ def analyze_and_plot_forecast(input):
     member_directory = input[1]
     
     #plot results
-    post_process.generate_ensemble_graphs(config_file,member_directory) 
+    post_process.generate_hydrographs(config_file,member_directory, "True") 
   
     #copy results
     print member_directory
@@ -1202,6 +1201,8 @@ class ConfigParse:
         # location of adjustment scripts
         self.precip_adjust = parameter_settings["precip_adjust"]
         self.temp_adjust = parameter_settings["temp_adjust"]
+        
+        
 
     
 

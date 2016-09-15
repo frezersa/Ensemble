@@ -119,11 +119,11 @@ def main():
           member_path = os.path.join(os.path.dirname(os.path.dirname(config_file.repository_directory)), i)
           copy_resume(config_file, "Repo_spinup", member_path=member_path)
 
-        # execute watflood
-        input = [[config_file,config_file.repository_directory]] #MotherShip input
+        # execute watflood and plot hydrographs
+        input = [[config_file,config_file.repository_directory,"False"]] #MotherShip input
         for j,member in enumerate(members): #member input
           member_repository = os.path.join(os.path.dirname(os.path.dirname(config_file.repository_directory)), member,"Repo")
-          input.append([config_file,member_repository])
+          input.append([config_file,member_repository,"False"])
           
         pool = multiprocessing.Pool(processes = len(members) + 1)
         pool.map(execute_and_plot_hindcast,input)
