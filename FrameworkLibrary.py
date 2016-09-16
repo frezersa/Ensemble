@@ -21,6 +21,7 @@ import pyEnSim.pyEnSim as pyEnSim
 import pyEnSim_basics
 import met_process
 import post_process
+import pre_process
 
 
     
@@ -89,12 +90,11 @@ def generate_spinup_event_files(config_file,start_date,end_date):
     #Execute if only a single year for spinup
     if start_year == end_year:
       event_start = str(start_year) + "/01/01"
-      cmd = ["python",
-            os.path.join(config_file.repository_directory, config_file.scripts_directory,"EventGenerator.py"),
-            "-fd","1900/01/01",
-            "-f",":noeventstofollow","0",event_start,
-            "-f",":tbcflg","y"] #1900 is a dummy year that needs to be entered for the EventGenerator to work
-      subprocess.call(cmd,shell=True)
+      pre_process.EventGenerator(config_file, 
+                         start_date = event_start, 
+                         first_event = True, 
+                         events_to_follow = False,
+                         flags = [[":resumflg", "n"],[":tbcflg", "y"]])
       return #get out of function if single year
 
     #get range of years
@@ -102,44 +102,41 @@ def generate_spinup_event_files(config_file,start_date,end_date):
     
 
     
-    #usage: EventGenerator.py [-h] [-FS FORECASTSTART] [-f FLAG FLAG] YearStart [-fd forecastdates]
-    #generate the historical event file from jan 1 up to yesterday of forecast start date. must supply "-fd" to ensure event file to follow name is correct. 
     #loop through each year
     for i,event_year in enumerate(Spinup_Years):
       event_start = str(event_year) + "/01/01"
       
-      
-      yearstofollow = [str(s) for s in range(event_year+1,end_year+1)]
-      stringtoappend = "/01/01"
-      eventstofollow = [s + stringtoappend for s in yearstofollow]
-      pretty_eventstofollow = ' '.join(eventstofollow)
+
+
 
       #first event file
       if i == 0:
-        cmd = ["python",
-              os.path.join(config_file.repository_directory, config_file.scripts_directory,"EventGenerator.py"),
-              "-fd",pretty_eventstofollow,
-              "-f",":noeventstofollow",str(len(eventstofollow)),event_start]
+        stringtoappend = "0101.evt"
+        yearstofollow = [str(s) + stringtoappend for s in range(event_year+1,end_year+1)]
+        pre_process.EventGenerator(config_file, 
+                                   start_date = event_start, 
+                                   first_event = True, 
+                                   events_to_follow = yearstofollow,
+                                   flags = [[":resumflg", "n"],[":tbcflg", "n"]])
         
       if i!= 0:
         #middle event files
         if event_year != (end_year):
-          cmd = ["python",
-                os.path.join(config_file.repository_directory, config_file.scripts_directory,"EventGenerator.py"),
-                "-fd",pretty_eventstofollow,
-                "-f",":noeventstofollow","0",event_start,
-                "-spinup","True"]
-                
+            pre_process.EventGenerator(config_file, 
+                                       start_date = event_start, 
+                                       first_event = False, 
+                                       events_to_follow = False,
+                                       flags = [[":resumflg", "n"],[":tbcflg", "n"]])
+                                   
         #last event file
         if event_year == (end_year):
-          cmd = ["python",
-                os.path.join(config_file.repository_directory, config_file.scripts_directory,"EventGenerator.py"),
-                "-f",":noeventstofollow","0",
-                "-f",":tbcflg","y",
-                "-fd",event_start,
-                "-spinup","True",event_start]
+            pre_process.EventGenerator(config_file, 
+                                       start_date = event_start, 
+                                       first_event = False, 
+                                       events_to_follow = False,
+                                       flags = [[":resumflg", "n"],[":tbcflg", "y"]])
           
-      subprocess.call(cmd,shell=True)
+      
      
 
     
@@ -344,14 +341,14 @@ def execute_and_plot_spinup(input):
     #parse input
     config_file = input[0]
     member_directory = input[1]
+    use_forecast = input[2]
     
     #execute spinup
     execute_watflood(config_file,member_directory)
+    
 
     #plot results
-    post_process.generate_analysis_graphs(config_file,
-                            start_date = config_file.spinup_start_date,
-                            member_directory = member_directory)
+    post_process.generate_hydrographs(config_file,member_directory,use_forecast) 
   
     #copy results
     print member_directory
@@ -637,9 +634,6 @@ def parse_configuration_file(configuration_file):
     
 
 
-    
-    
-
 def getDateTime(hours):
     """
     gets a DateTime hours hours from midnight this morning
@@ -667,7 +661,7 @@ def build_dir(directory):
         os.makedirs(d)
   
 
-def generate_distribution_event_file(config_file, resume_toggle = "False", tbc_toggle = "False"):
+def generate_hindcast_event_file(config_file, start_date, resume_toggle = False, tbc_toggle = False):
     """
     creates event file with :noeventstofollow set to 0. used to run distribution executables.
     
@@ -675,52 +669,29 @@ def generate_distribution_event_file(config_file, resume_toggle = "False", tbc_t
     updated file for watflood.
     """
     
-    # usage: EventGenerator.py [-h] [-FS FORECASTSTART] [-f FLAG FLAG] YearStart [-fd forecastdates]
-    # generate the historical event file from jan 1 up to yesterday of forecast start date. must supply "-fd" to ensure event file to follow name is correct. 
-    # set the :noeventstofollow to 0.
-    if resume_toggle == "True" and tbc_toggle == "True":
-      cmd = ["python",
-            os.path.join(config_file.repository_directory, config_file.scripts_directory, "EventGenerator.py"),
-            "-f", ":noeventstofollow", "0",
-            "-f", ":resumflg", "y",
-            "-f", ":tbcflg", "y",
-            "-fd", config_file.forecast_date,
-            "-spinup", "False", config_file.historical_start_date]
-      subprocess.call(cmd,shell=True)
-    
-    elif resume_toggle == "False" and tbc_toggle == "False":
-      cmd = ["python",
-            os.path.join(config_file.repository_directory, config_file.scripts_directory, "EventGenerator.py"),
-            "-f", ":noeventstofollow", "0",
-            "-f", ":resumflg", "n",
-            "-f", ":tbcflg", "n",
-            "-fd", config_file.forecast_date,
-            "-spinup", "False", config_file.historical_start_date]
-      subprocess.call(cmd,shell=True)
-      
-    elif resume_toggle == "True" and tbc_toggle == "False":
-      cmd = ["python",
-            os.path.join(config_file.repository_directory, config_file.scripts_directory, "EventGenerator.py"),
-            "-f", ":noeventstofollow", "0",
-            "-f", ":resumflg", "y",
-            "-f", ":tbcflg", "n",
-            "-fd", config_file.forecast_date,
-            "-spinup", "False", config_file.historical_start_date]
-      subprocess.call(cmd,shell=True)
-      
-    elif resume_toggle == "False" and tbc_toggle == "True":
-      cmd = ["python",
-            os.path.join(config_file.repository_directory, config_file.scripts_directory, "EventGenerator.py"),
-            "-f", ":noeventstofollow", "0",
-            "-f", ":resumflg", "n",
-            "-f", ":tbcflg", "y",
-            "-fd", config_file.forecast_date,
-            "-spinup", "False", config_file.historical_start_date]
-      subprocess.call(cmd,shell=True)
-      
-
 
     
+    if resume_toggle is True:
+        resflag = "y"
+    else:
+        resflag = "n"
+        
+    if tbc_toggle is True:
+        tflag = "y"
+    else:
+        tflag = "n"
+
+    pre_process.EventGenerator(config_file, 
+                             start_date = start_date, 
+                             first_event = True, 
+                             events_to_follow = False,
+                             flags = [[":resumflg", resflag,],[":tbcflg", tflag]])
+                             
+
+    
+                             
+                             
+                             
 
 def generate_run_event_files_forecast(config_file,members):
     """
@@ -757,15 +728,25 @@ def generate_run_event_files_forecast(config_file,members):
         new_temperature_file = tem_list[i]
         new_tempdiff_file = dif_list[i]
         
-      cmd = ["python",os.path.join(config_file.repository_directory,config_file.scripts_directory,"EventGenerator.py"),"-FS",config_file.forecast_date,
-          "-f",":resumflg","y",
-          "-f",":tbcflg","n",
-          "-f",":griddedrainfile","radcl\\" + met_list[i], 
-          "-f",":griddedtemperaturefile","tempr\\" + new_temperature_file,
-          "-f",":griddeddailydifference","tempr\\" + new_tempdiff_file,
-          "-fd","1900/01/01","-f",":noeventstofollow","0",
-          config_file.historical_start_date]
-      subprocess.call(cmd,shell=True)
+      # cmd = ["python",os.path.join(config_file.repository_directory,config_file.scripts_directory,"EventGenerator.py"),"-FS",config_file.forecast_date,
+          # "-f",":resumflg","y",
+          # "-f",":tbcflg","n",
+          # "-f",":griddedrainfile","radcl\\" + met_list[i], 
+          # "-f",":griddedtemperaturefile","tempr\\" + new_temperature_file,
+          # "-f",":griddeddailydifference","tempr\\" + new_tempdiff_file,
+          # "-fd","1900/01/01","-f",":noeventstofollow","0",
+          # config_file.historical_start_date]
+      # subprocess.call(cmd,shell=True)
+      
+      pre_process.EventGenerator(config_file, 
+                         start_date = config_file.forecast_date, 
+                         first_event = True, 
+                         events_to_follow = False,
+                         flags = [[":resumflg", "y"],
+                                  [":tbcflg", "n"],
+                                  [":griddedrainfile","radcl\\" + met_list[i]],
+                                  [":griddedtemperaturefile","tempr\\" + new_temperature_file],
+                                  [":griddeddailydifference","tempr\\" + new_tempdiff_file]])
     
       #copy to other members
       for i in members:
@@ -901,14 +882,14 @@ def calculate_distributed_data(config_file, snow, moist):
       subprocess.call(cmd,shell=True)
 	
     # snow exe
-    if snow == "True":
+    if snow == True:
       cmd = [os.path.join(config_file.repository_directory,
                           config_file.bin_directory,
                           config_file.data_distribution_snow)]   
       subprocess.call(cmd,shell=True)
 	
     # moist exe
-    if moist == "True":
+    if moist == True:
       cmd = [os.path.join(config_file.repository_directory,
                           config_file.bin_directory,
                           config_file.data_distribution_moist)]   

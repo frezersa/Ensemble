@@ -30,6 +30,7 @@ import pyEnSim.pyEnSim as pyEnSim
 from FrameworkLibrary import *
 import post_process
 
+
 def main():
     class args(object):
       pass
@@ -56,38 +57,38 @@ def main():
     if model_run == "Spinup":
         print "\n===============creating spin up===================\n"
         
-        # Prepare Directories
-        clean_up(config_file.repository_directory)
-        generate_spinup_event_files(config_file,
-                                    config_file.spinup_start_date, 
-                                    config_file.spinup_end_date)
-        generate_spinup_generic_files(config_file,
-                                      config_file.spinup_start_date,
-                                      config_file.spinup_end_date)
-        query_lwcb_db(config_file,
-                      config_file.spinup_start_date,
-                      config_file.spinup_end_date)
-        if config_file.use_capa == "True":
-            spinup_capa(config_file,
-                        config_file.spinup_start_date,
-                        config_file.spinup_end_date)
-        if config_file.use_GEMTemps == "True":
-            spinup_GEMTemps(config_file,
-                            config_file.spinup_start_date,
-                            config_file.spinup_end_date)
-        calculate_distributed_data(config_file,
-                                   snow="False",
-                                   moist="False")
+        # # Prepare Directories
+        # clean_up(config_file.repository_directory)
+        # generate_spinup_event_files(config_file,
+                                    # config_file.spinup_start_date, 
+                                    # config_file.spinup_end_date)
+        # generate_spinup_generic_files(config_file,
+                                      # config_file.spinup_start_date,
+                                      # config_file.spinup_end_date)
+        # query_lwcb_db(config_file,
+                      # config_file.spinup_start_date,
+                      # config_file.spinup_end_date)
+        # if config_file.use_capa == "True":
+            # spinup_capa(config_file,
+                        # config_file.spinup_start_date,
+                        # config_file.spinup_end_date)
+        # if config_file.use_GEMTemps == "True":
+            # spinup_GEMTemps(config_file,
+                            # config_file.spinup_start_date,
+                            # config_file.spinup_end_date)
+        # calculate_distributed_data(config_file,
+                                   # snow="False",
+                                   # moist="False")
         
         for i in members:
           setup_members(config_file,i)
           copy_memberevents(config_file,i)
 
         # execute watflood
-        input = [[config_file,config_file.repository_directory]] #MotherShip input
+        input = [[config_file,config_file.repository_directory,"False"]] #MotherShip input
         for j,member in enumerate(members): #member input
           member_repository = os.path.join(os.path.dirname(os.path.dirname(config_file.repository_directory)), member,"Repo")
-          input.append([config_file,member_repository])
+          input.append([config_file,member_repository,"False"])
           
         pool = multiprocessing.Pool(processes = len(members) + 1)
         #pool = multiprocessing.Pool(processes = 1)
@@ -106,12 +107,18 @@ def main():
                       start_date = config_file.historical_start_date,
                       end_date = config_file.historical_end_date)
         met_process.query_ec_datamart_hindcast(config_file)
-        generate_distribution_event_file(config_file,
-                                         resume_toggle = "True", 
-                                         tbc_toggle = "True")
+        
+        #generate the event file, this may need to be executed again after the distribute data programs are run,
+        #not required in current setup
+        generate_hindcast_event_file(config_file,
+                                     start_date = config_file.historical_start_date,
+                                     resume_toggle = True, 
+                                     tbc_toggle = True)
+                                     
         calculate_distributed_data(config_file,
-                                   snow = "False",
-                                   moist = "False",)
+                                   snow = False,
+                                   moist = False)
+
                                    
         for i in members:
           setup_members(config_file,i)
