@@ -94,7 +94,23 @@ def grib_save_r2c(grib_path, r2c_template_path, FileName, timestamp = datetime.d
     #Save to file
     r2c_object.SaveToMultiFrameASCIIFile(FileName,0)
     
-
+def r2c_EndFrameData(r2cTargetFilePath):
+    """
+    given a path to an ascii r2c file, it returns the last frame number and frame time
+    """
+    
+    #get the frame and time data from the target r2c file
+    match = re.findall(r':Frame\s+(\d+)\s+\d+\s+(.+)', open(r2cTargetFilePath).read())
+    match = match[len(match)-1]
+    lastindexframe = int(match[0])
+    lasttimeframe = match[1]
+    #get the timestamp from the last frame, try multiple formats
+    try:
+        endtimeframe = datetime.datetime.strptime(lasttimeframe, '"%Y/%m/%d %H:%M"') + datetime.timedelta(hours = timeDelta)
+    except:
+        endtimeframe = datetime.datetime.strptime(lasttimeframe, '"%Y/%m/%d %H:%M:00.000"') + datetime.timedelta(hours = timeDelta)
+        
+    return lastindexframe,endtimeframe
     
 
 def grib_append_r2c(grib_path, r2c_template_path, r2cTargetFileName, timeDelta, convert_mult = False, convert_add = False):
@@ -138,15 +154,8 @@ def grib_append_r2c(grib_path, r2c_template_path, r2cTargetFileName, timeDelta, 
     firstRaster.ConvertToCoordinateSystem(cs)
     
     #get the frame and time data from the target r2c file
-    match = re.findall(r':Frame\s+(\d+)\s+\d+\s+(.+)', open(r2cTargetFileName).read())
-    match = match[len(match)-1]
-    lastindexframe = int(match[0])
-    lasttimeframe = match[1]
-    #get the timestamp from the last frame, try multiple formats
-    try:
-        endtimeframe = datetime.datetime.strptime(lasttimeframe, '"%Y/%m/%d %H:%M"') + datetime.timedelta(hours = timeDelta)
-    except:
-        endtimeframe = datetime.datetime.strptime(lasttimeframe, '"%Y/%m/%d %H:%M:00.000"') + datetime.timedelta(hours = timeDelta)
+    lastindexframe, endtimeframe = r2c_EndFrameData(r2cTargetFileName)
+    
     #convert time into pyEnSim format
     timeStep = pyEnSim.CEnSimDateTime()
     timeStep.Set(endtimeframe.year, endtimeframe.month, endtimeframe.day, endtimeframe.hour, 0, 0, 0)

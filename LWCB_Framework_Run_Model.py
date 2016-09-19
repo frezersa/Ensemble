@@ -54,31 +54,36 @@ def main():
     ## ===== run operational framework
 
     #= spin up 
-    if model_run == "Spinup":
+    if model_run == "UpdateConfig":
+        print "\n===============Updating Configuration File with Today's dates===================\n"
+        UpdateConfig(config_file)
+        
+        
+        
+    elif model_run == "Spinup":
         print "\n===============creating spin up===================\n"
         
-        # # Prepare Directories
-        # clean_up(config_file.repository_directory)
-        # generate_spinup_event_files(config_file,
-                                    # config_file.spinup_start_date, 
-                                    # config_file.spinup_end_date)
-        # generate_spinup_generic_files(config_file,
-                                      # config_file.spinup_start_date,
-                                      # config_file.spinup_end_date)
-        # query_lwcb_db(config_file,
-                      # config_file.spinup_start_date,
-                      # config_file.spinup_end_date)
-        # if config_file.use_capa == "True":
-            # spinup_capa(config_file,
-                        # config_file.spinup_start_date,
-                        # config_file.spinup_end_date)
-        # if config_file.use_GEMTemps == "True":
-            # spinup_GEMTemps(config_file,
-                            # config_file.spinup_start_date,
-                            # config_file.spinup_end_date)
-        # calculate_distributed_data(config_file,
-                                   # snow="False",
-                                   # moist="False")
+        # Prepare Directories
+        clean_up(config_file.repository_directory)
+        generate_spinup_event_files(config_file,
+                                    config_file.spinup_start_date, 
+                                    config_file.spinup_end_date)
+        generate_spinup_generic_files(config_file,
+                                      config_file.spinup_start_date)
+        query_lwcb_db(config_file,
+                      config_file.spinup_start_date,
+                      config_file.spinup_end_date)
+        if config_file.use_capa == "True":
+            spinup_capa(config_file,
+                        config_file.spinup_start_date,
+                        config_file.spinup_end_date)
+        if config_file.use_GEMTemps == "True":
+            spinup_GEMTemps(config_file,
+                            config_file.spinup_start_date,
+                            config_file.spinup_end_date)
+        calculate_distributed_data(config_file,
+                                   snow="False",
+                                   moist="False")
         
         for i in members:
           setup_members(config_file,i)

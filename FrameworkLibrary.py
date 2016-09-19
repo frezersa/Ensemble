@@ -13,6 +13,7 @@ import argparse
 import re
 import urllib2
 import multiprocessing
+import tempfile
 
 # NRC pyEnSim. must be installed prior to use.
 import pyEnSim.pyEnSim as pyEnSim 
@@ -141,31 +142,21 @@ def generate_spinup_event_files(config_file,start_date,end_date):
 
     
        
-def generate_spinup_generic_files(config_file,start_date,end_date):
+def generate_spinup_generic_files(config_file,start_date):
     """
-    generates generic data files only for spin up. files are _ill.pt2/crs.pt2 & psm.pt2. generated from templates at /../lib/
-    
-    2 files for each, based on start/end pull YYYY
+    generates generic data files only for spin up.  generated from templates at /../lib/
+
     """
     
     print "Generating snow and moist files"
-    tmp_yyyy = end_date.split("/")[0]
-    end_date = "%s/%s/%s" %(tmp_yyyy,"01","01")
     
-    
-    # generate crs.pt2, write to snow1 directory
-    cmd = ["python",
-          os.path.join(config_file.repository_directory, config_file.scripts_directory, "GenericTemplateWritter.py"),
-          "TEMPLATE_swe.r2c",
-          os.path.join(config_file.model_directory_path,"snow1"),"swe.r2c",start_date]
-    subprocess.call(cmd,shell=True)
+    # generate swe.r2c, write to snow1 directory
+    pre_process.GenericTemplateWriter(config_file, template_name = "TEMPLATE_swe.r2c", start_date = start_date)
        
     # generate psm.pt2, write to moist directory
-    cmd = ["python",
-          os.path.join(config_file.repository_directory,config_file.scripts_directory,"GenericTemplateWritter.py"),
-          "TEMPLATE_gsm.r2c",
-          os.path.join(config_file.model_directory_path,"moist"),"gsm.r2c",start_date]
-    subprocess.call(cmd,shell=True)
+    pre_process.GenericTemplateWriter(config_file, template_name = "TEMPLATE_gsm.r2c", start_date = start_date)
+    
+    
 
 
 def query_lwcb_db(config_file,start_date,end_date):
@@ -700,9 +691,7 @@ def generate_run_event_files_forecast(config_file,members):
     update the historical event flag :resumflg to 'y'
     """
     print "Generating event files and executing WATFLOOD..."
-    # usage: EventGenerator.py [-h] [-FS FORECASTSTART] [-f FLAG FLAG] YearStart [-fd forecastdates]
-    # generate the historical event file. must supply "-fd" to ensure event file to follow name is correct.
-    # set the :resumflg = y
+
 
     #get list of met files
     met_list = sorted(os.listdir(config_file.model_directory_path + "/radcl"))
@@ -728,15 +717,6 @@ def generate_run_event_files_forecast(config_file,members):
         new_temperature_file = tem_list[i]
         new_tempdiff_file = dif_list[i]
         
-      # cmd = ["python",os.path.join(config_file.repository_directory,config_file.scripts_directory,"EventGenerator.py"),"-FS",config_file.forecast_date,
-          # "-f",":resumflg","y",
-          # "-f",":tbcflg","n",
-          # "-f",":griddedrainfile","radcl\\" + met_list[i], 
-          # "-f",":griddedtemperaturefile","tempr\\" + new_temperature_file,
-          # "-f",":griddeddailydifference","tempr\\" + new_tempdiff_file,
-          # "-fd","1900/01/01","-f",":noeventstofollow","0",
-          # config_file.historical_start_date]
-      # subprocess.call(cmd,shell=True)
       
       pre_process.EventGenerator(config_file, 
                          start_date = config_file.forecast_date, 
@@ -770,12 +750,7 @@ def generate_forecast_streamflow_file(config_file):
     """
     
     # forecast start date used
-    # --start hour is optional. not implemented as it defaults to 00.
-    cmd = ["python",os.path.join(config_file.repository_directory,
-                                config_file.scripts_directory,
-                                "StreamflowGenerator.py"),
-                                config_file.forecast_date]
-    subprocess.call(cmd,shell=True)
+    pre_process.StreamFlowGenerator(config_file, "TEMPLATE_str.tb0", start_date = config_file.forecast_date, NumDays = 10)
 
 
 def generate_forecast_releases_file(config_file):
@@ -800,8 +775,8 @@ def generate_forecast_inflows_file(config_file):
     forecast startdate required
     """
     
-    cmd = ["python",os.path.join(config_file.repository_directory,config_file.scripts_directory,"ResInflowGenerator.py"),config_file.forecast_date]
-    subprocess.call(cmd,shell=True)
+
+    pre_process.ResInflowGenerator(config_file, "TEMPLATE_rin.tb0", start_date = config_file.forecast_date, NumDays = 10)
 
 
 
@@ -1067,7 +1042,38 @@ def copy_resume(config_file,source_dir,member_path="NA"): #source dir is the nam
 
     print "\n"
     
-    
+
+def UpdateConfig(config_file):
+    """
+    Script to make automatic changes to 'configuration.txt'
+    Namely, changes the historical_end_date and the forecast_date to yesterday and today, respectively
+    """
+
+    #first define a search and replace function
+    def replace(file_path, pattern, subst):
+        #Create temp file
+        fh, abs_path = tempfile.mkstemp()
+        new_file = open(abs_path,'w')
+        old_file = open(file_path)
+        for line in old_file:
+            #new_file.write(line.replace(pattern, subst))
+            new_file.write(re.sub(pattern, subst, line)) #http://stackoverflow.com/questions/16720541/python-string-replace-regular-expression?lq=1
+        #close temp file
+        new_file.close()
+        os.close(fh)
+        old_file.close()
+        #Remove original file
+        os.remove(file_path)
+        #Move new file
+        shutil.move(abs_path, file_path)
+        
+    #Get today's and yesterday's dates
+    today_date = datetime.datetime.today()
+    yesterday_date = today_date - datetime.timedelta(1)
+        
+    #replace dates in text file
+    replace(config_file.configuration_file,r'historical_end_date:.+','historical_end_date:' + yesterday_date.strftime('%Y/%m/%d'))
+    replace(config_file.configuration_file,r'forecast_date:.+','forecast_date:' + today_date.strftime('%Y/%m/%d'))    
     
 
 class ConfigParse:

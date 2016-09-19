@@ -3,6 +3,8 @@ import datetime
 import sys
 import multiprocessing
 import subprocess
+import urllib2
+import re
 
 import FrameworkLibrary 
 import pyEnSim_basics
@@ -584,4 +586,59 @@ def query_ec_datamart_hindcast(config_file):
           os.path.join(config_file.repository_directory,config_file.scripts_directory)]
     subprocess.call(cmd,shell=True)
     
+    
+def Download_Datamart_Hindcast(config_file,type,RepoPath):
+    #Initialize some useful variables
+    timeVar = FrameworkLibrary.getDateTime(hours = 0) #get today at time = 0
+    timestamp = timeVar.strftime("%Y%m%d%H")
+    ScriptDir = config_file.scripts_directory
+
+
+    #define server names
+    if type == 'CaPA':
+        url = 'http://dd.weather.gc.ca/analysis/precip/rdpa/grib2/polar_stereographic/06/'
+        filename_nomenclature = 'CMC_RDPA_APCP-006-0700cutoff_SFC_0_ps10km_'
+    else:
+        raise ValueError('Source type is not defined. Only "CaPA" hindcast data can currently be downloaded')
+    
+
+    #get list of files on the server
+    #http://stackoverflow.com/questions/10875215/python-urllib-downloading-contents-of-an-online-directory
+    urlpath = urllib2.urlopen(url)
+    server_data = urlpath.read()
+    filename_pattern = re.compile('"(' + filename_nomenclature + '.+.grib2)"')
+    filelist = filename_pattern.findall(server_data)
+    
+    
+    print "Downloading grib files from DataMart..."
+    #for all the files on the datamart
+    for s,name in enumerate(filelist):
+        try:
+            if not os.path.exists(os.path.join(RepoPath, name)): #if file doesn't exist locally, then download
+                os.system("wget -O " + os.path.join(RepoPath, name) + " " + url + "/" + name)
+        except:
+            pass
+    print "All of the files have been downloaded from:\n" + url
+    
+    
+    
+
+def MetUpdate(config_file, r2c_target_path, type, RepoPath, r2c_template_path):
+    """
+    Function to update r2c files with either CaPA data or Temperature data from the EC datamart
+    """
+    
+    #Check datamart repository and download any data that isn't in local repository
+    Download_Datamart_Hindcast(config_file,type,RepoPath)
+    
+    
+    #load capa template and get coordinate system
+    r2c_template_object = pyEnSim_basics.load_r2c_template(r2c_template_path)
+    cs = r2c_template_object.GetCoordinateSystem()
+    
+    #load capa r2c and get last frame and time
+    lastindexframe, lasttimeframe = pyEnSim_basics.r2c_EndFrameData(r2c_target_path)
+    
+    #starting at the next timestep, convert specified capa grib file and append to r2c file
+
 
