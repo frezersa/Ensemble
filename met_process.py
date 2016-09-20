@@ -5,6 +5,7 @@ import multiprocessing
 import subprocess
 import urllib2
 import re
+import shutil
 
 import FrameworkLibrary 
 import pyEnSim_basics
@@ -564,13 +565,7 @@ def query_ec_datamart_hindcast(config_file):
     # always pull capa data
 
     # generate r2c from grib2
-    print "Getting Precipitation Data /n"
-    # cmd = ["python",
-          # os.path.join(config_file.repository_directory, config_file.scripts_directory,"CaPAUpdate.py"),
-          # "--RepoPath", config_file.grib_capa_repo,
-          # "--startHour",config_file.capa_start_hour,
-          # "--historicalStartDate",config_file.historical_start_date]
-    # subprocess.call(cmd,shell=True)
+    print "Getting Precipitation Data..."
     hind_start_date = datetime.datetime.strptime(config_file.historical_start_date,"%Y/%m/%d")
     capafilename = hind_start_date.strftime("%Y%m%d_met.r2c")
     MetUpdate(config_file, 
@@ -578,23 +573,39 @@ def query_ec_datamart_hindcast(config_file):
               type = "CaPA", 
               RepoPath = config_file.grib_capa_repo, 
               r2c_template_path = os.path.join(config_file.repository_directory,config_file.lib_directory,"TEMPLATE_met.r2c"))
+              
+    #copy over to working directory          
+    origin = os.path.join(config_file.historical_capa_path,capafilename)
+    destination = os.path.join(config_file.model_directory_path,"radcl",capafilename)
+    shutil.copyfile(origin, destination)
+    
+    
+    
         
     # #GEM Temperature Data
-    # print "Getting Temperature Data /n"
-    # cmd = ["python",
-          # os.path.join(config_file.repository_directory, config_file.scripts_directory,"TemperatureUpdate.py"),
-          # "--RepoPath", config_file.grib_GEMTemps_repo]
-    # subprocess.call(cmd,shell=True)
+    print "Getting Temperature Data..."
+    hind_start_date = datetime.datetime.strptime(config_file.historical_start_date,"%Y/%m/%d")
+    GEMTempsfilename = hind_start_date.strftime("%Y%m%d_tem.r2c")
+    MetUpdate(config_file, 
+              r2c_target_path = os.path.join(config_file.historical_GEMTemps_path,GEMTempsfilename), 
+              type = "GEMTemps", 
+              RepoPath = config_file.grib_GEMTemps_repo, 
+              r2c_template_path = os.path.join(config_file.repository_directory,config_file.lib_directory,"TEMPLATE_tem.r2c"))
+              
+    #copy over to working directory          
+    origin = os.path.join(config_file.historical_GEMTemps_path, GEMTempsfilename)
+    destination = os.path.join(config_file.model_directory_path, "tempr", GEMTempsfilename)
+    shutil.copyfile(origin, destination)
     
-    # #create YYYYMMDD_dif.r2c file from temperature file
-    # print "Calculating YYYYMMDD_dif.r2c file /n"
-    # cmd = [config_file.rscript_path,
-          # os.path.join(config_file.repository_directory,config_file.scripts_directory,"tempdiff.R"),
-          # os.path.join(config_file.repository_directory,config_file.scripts_directory)]
-    # subprocess.call(cmd,shell=True)
+    #create YYYYMMDD_dif.r2c file from temperature file
+    print "Calculating YYYYMMDD_dif.r2c file /n"
+    cmd = [config_file.rscript_path,
+          os.path.join(config_file.repository_directory,config_file.scripts_directory,"tempdiff.R"),
+          os.path.join(config_file.repository_directory,config_file.scripts_directory)]
+    subprocess.call(cmd,shell=True)
     
     
-def Download_Datamart_Hindcast(config_file,type,RepoPath):
+def Download_Datamart_ReAnalysisHindcast(config_file,type,RepoPath):
     #Initialize some useful variables
     timeVar = FrameworkLibrary.getDateTime(hours = 0) #get today at time = 0
     timestamp = timeVar.strftime("%Y%m%d%H")
@@ -605,6 +616,8 @@ def Download_Datamart_Hindcast(config_file,type,RepoPath):
     if type == 'CaPA':
         url = 'http://dd.weather.gc.ca/analysis/precip/rdpa/grib2/polar_stereographic/06/'
         filename_nomenclature = 'CMC_RDPA_APCP-006-0700cutoff_SFC_0_ps10km_'
+        
+                
     else:
         raise ValueError('Source type is not defined. Only "CaPA" hindcast data can currently be downloaded')
     
@@ -626,7 +639,6 @@ def Download_Datamart_Hindcast(config_file,type,RepoPath):
         except:
             pass
     print "All of the files have been downloaded from:\n" + url
-    print "\n"
     
     #get the timestamp of the last file
     pattern = filename_nomenclature + "(\d+)(_\d+.grib2)"
@@ -646,6 +658,76 @@ def Download_Datamart_Hindcast(config_file,type,RepoPath):
     
     
     
+def Download_Datamart_GEMHindcast(config_file,type,RepoPath):
+    """
+    """
+    
+    #Initialize some useful variables
+    timeVar = FrameworkLibrary.getDateTime(hours = 0) #get today at time = 0
+    timestamp = timeVar.strftime("%Y%m%d%H")
+    ScriptDir = config_file.scripts_directory
+
+
+    #define server/model defaults
+    if type == 'GEMTemps':
+        url = 'http://dd.weather.gc.ca/model_gem_regional/10km/grib2/'
+        filename_nomenclature = 'CMC_reg_TMP_TGL_2_ps10km_'
+        forecast_periods = [00,06,12,18] #the forecast is produced 4 times a day
+        time_periods = [000,003] # want to grab these hours to stitch together
+    else:
+        raise ValueError('Source type is not defined. Only "GEMTemps" forecast/hindcast data can currently be downloaded')
+        
+        
+    #the model data is only stored online for today and yesterday
+    #if this changes, then you will need to modify the dates
+    now = datetime.datetime.now()
+    yesterday = now - datetime.timedelta(days=1)
+
+    now_datestamp = now.strftime("%Y%m%d")
+    yesterday_datestamp = yesterday.strftime("%Y%m%d")
+
+    dates = [yesterday_datestamp,now_datestamp]
+    
+
+    #Download grib2 files from DataMart ****************************************************** 
+    #While an online version exists and a local version does not download then repeat (hours 000 & 003 for all four forecasts)
+    for i,startperiod in enumerate(forecast_periods):
+        for j,starthour in enumerate(time_periods):
+            for k,day in enumerate(dates):
+
+                filename = filename_nomenclature + day + str(startperiod).zfill(2) +'_P' + str(starthour).zfill(3) + '.grib2'
+                website = url + str(startperiod).zfill(2) + '/' + str(starthour).zfill(3) + '/' + filename
+          
+          
+                if os.path.exists(os.path.join(RepoPath,filename)): #check if file already exists in local directory
+                    lastfile = os.path.join(RepoPath,filename)
+                else:
+                    try: #download if remote file exists
+                        urllib2.urlopen(website) #command to see if remote file can be opened
+                        os.system("wget -O " + os.path.join(RepoPath,filename) + " " + website) #use wget to actually download the file
+                        lastfile = os.path.join(RepoPath,filename)
+                    except urllib2.URLError as e: #do nothing if remote file doesn't exist
+                        pass
+            
+            
+    print "All of the files have been downloaded from:\n" + url
+
+    
+    #get the timestamp of the last file
+    pattern = filename_nomenclature + "(\d+)(_P\d+.grib2)"
+
+    
+    m = re.match(pattern,filename)
+    if m:
+        lasttimestring = m.groups()[0]
+        lasttimestep = datetime.datetime.strptime(lasttimestring,"%Y%m%d%H")
+
+
+
+
+    return lasttimestep, filename_nomenclature
+    
+    
 
 def MetUpdate(config_file, r2c_target_path, type, RepoPath, r2c_template_path):
     """
@@ -654,45 +736,90 @@ def MetUpdate(config_file, r2c_target_path, type, RepoPath, r2c_template_path):
     
     if type == "CaPA":
         timestep = 6
+    if type == "GEMTemps":
+        timestep = 3
     
     #Check datamart repository and download any data that isn't in local repository
-    lastgribfiletime, grib_path_string = Download_Datamart_Hindcast(config_file,type,RepoPath)
+    if type == "CaPA":
+        lastgribfiletime, grib_path_string = Download_Datamart_ReAnalysisHindcast(config_file,type,RepoPath)
+    if type == "GEMTemps":
+        lastgribfiletime, grib_path_string = Download_Datamart_GEMHindcast(config_file,type,RepoPath)
+
     
     
     #load capa template and get coordinate system
     template_r2c_object = pyEnSim_basics.load_r2c_template(r2c_template_path)
 
     
-    #load capa r2c and get last frame and time
+    #load r2c and get last frame and time
     lastindexframe, lasttimeframe = pyEnSim_basics.r2c_EndFrameData(r2c_target_path)
     
     #get the last date in the grib file repository
-    print "The last frame is: " 
-    print lasttimeframe
-    print "the last gribfile is: "
-    print lastgribfiletime
+    print "The last frame is:    " + str(lasttimeframe)
+    print "the last gribfile is: " + str(lastgribfiletime)
     print "\n"
     
 
-    
-    #starting at the next timestep, convert specified capa grib file and append to r2c file
-    current_time = lasttimeframe
-    current_index = lastindexframe
-    
-    while(current_time < lastgribfiletime):
-        current_time = current_time + datetime.timedelta(hours= timestep)
-        current_index = current_index + 1
-        current_gribpath = current_time.strftime(grib_path_string)
-        #print current_gribpath
+    if type == "CaPA":
+        #starting at the next timestep, convert specified capa grib file and append to r2c file
+        current_time = lasttimeframe
+        current_index = lastindexframe
         
-        #convert and append grib file
-        pyEnSim_basics.grib_fastappend_r2c(grib_path = current_gribpath, 
-                            template_r2c_object = template_r2c_object, 
-                            r2cTargetFileName = r2c_target_path, 
-                            frameindex = current_index, 
-                            frametime = current_time, 
-                            convert_mult = False, convert_add = False)
-        print current_time
+        while(current_time < lastgribfiletime):
+            current_time = current_time + datetime.timedelta(hours = timestep)
+            current_index = current_index + 1
+            current_gribpath = current_time.strftime(grib_path_string)
+            #print current_gribpath
+            
+            #convert and append grib file
+            pyEnSim_basics.grib_fastappend_r2c(grib_path = current_gribpath, 
+                                template_r2c_object = template_r2c_object, 
+                                r2cTargetFileName = r2c_target_path, 
+                                frameindex = current_index, 
+                                frametime = current_time, 
+                                convert_mult = False, convert_add = False)
+            print current_time
+            
+            
+            
 
+    if type == "GEMTemps":
+    
+        #create an ordered list of grib files to append
+        current_time = lasttimeframe
+
+        griblist = []
+        while(current_time < lastgribfiletime):
+            timestamp_odd = current_time.strftime("%Y%m%d%H")
+            current_time = current_time + datetime.timedelta(hours = timestep)
+            timestamp_even = current_time.strftime("%Y%m%d%H")
+            hourstamp = current_time.strftime("%H")
+            
+            #get relevant grib file name; this is dependent on the hour because the forecasted temps are being used
+            if int(hourstamp) in (0,6,12,18):
+               gribname = os.path.join(RepoPath,grib_path_string + timestamp_even + "_P000.grib2")
+               griblist.append(gribname)
+           
+            if int(hourstamp) in (3,9,15,21):
+               gribname = os.path.join(RepoPath,grib_path_string + timestamp_odd + "_P003.grib2")
+               griblist.append(gribname)
+        
+        
+        
+        #now iterate through grib list and append each file to r2c
+        current_time = lasttimeframe
+        current_index = lastindexframe
+        
+        for i, grib_path in enumerate(griblist):
+            current_index = current_index + 1
+            current_time = current_time + datetime.timedelta(hours = timestep)
+            #convert and append grib file
+            pyEnSim_basics.grib_fastappend_r2c(grib_path = grib_path, 
+                                template_r2c_object = template_r2c_object, 
+                                r2cTargetFileName = r2c_target_path, 
+                                frameindex = current_index, 
+                                frametime = current_time, 
+                                convert_mult = False, convert_add = -273.15)
+        
 
 

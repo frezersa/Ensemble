@@ -200,7 +200,7 @@ def grib_fastappend_r2c(grib_path, template_r2c_object, r2cTargetFileName, frame
     grib_object = load_grib_file(grib_path)
     firstRaster = grib_object.GetChild(0)
     firstRaster.InitAttributes()
-    # print firstRaster
+
     
     #apply unit converstions
     if convert_add != False:
@@ -213,7 +213,6 @@ def grib_fastappend_r2c(grib_path, template_r2c_object, r2cTargetFileName, frame
     
     #convert grib object to r2c attributes
     cs = template_r2c_object.GetCoordinateSystem() 
-    #print cs
     firstRaster.ConvertToCoordinateSystem(cs)
     
     
