@@ -94,6 +94,10 @@ def grib_save_r2c(grib_path, r2c_template_path, FileName, timestamp = datetime.d
     #Save to file
     r2c_object.SaveToMultiFrameASCIIFile(FileName,0)
     
+    
+    
+
+    
 def r2c_EndFrameData(r2cTargetFilePath):
     """
     given a path to an ascii r2c file, it returns the last frame number and frame time
@@ -106,9 +110,9 @@ def r2c_EndFrameData(r2cTargetFilePath):
     lasttimeframe = match[1]
     #get the timestamp from the last frame, try multiple formats
     try:
-        endtimeframe = datetime.datetime.strptime(lasttimeframe, '"%Y/%m/%d %H:%M"') + datetime.timedelta(hours = timeDelta)
+        endtimeframe = datetime.datetime.strptime(lasttimeframe, '"%Y/%m/%d %H:%M"')
     except:
-        endtimeframe = datetime.datetime.strptime(lasttimeframe, '"%Y/%m/%d %H:%M:00.000"') + datetime.timedelta(hours = timeDelta)
+        endtimeframe = datetime.datetime.strptime(lasttimeframe, '"%Y/%m/%d %H:%M:00.000"')
         
     return lastindexframe,endtimeframe
     
@@ -169,6 +173,63 @@ def grib_append_r2c(grib_path, r2c_template_path, r2cTargetFileName, timeDelta, 
     
     #Save to file
     r2c_object.AppendToMultiFrameASCIIFile(r2cTargetFileName,0)    
+    
+    
+def grib_fastappend_r2c(grib_path, template_r2c_object, r2cTargetFileName, frameindex, frametime, convert_mult = False, convert_add = False):
+    """
+    converts a single grib file and appends to an r2c file. A template file must be given so the grib data
+    is interpolated onto the template grid (not sure what interpolation technique is used but
+    it seems fairly robust). The template must have the same attributes as the target file. Unfortunately
+    the target attributes cannot be extracted without a time consuming conversion to binary (hence why
+    the small tamplate file is required)
+    
+    Args:
+        grib_object: a single frame object, if multiple frames, the function only used the first one
+        r2c_template: template must have same attributes as the target r2c
+        r2cTargetFileName: location of the r2c file that you want to append the new data to
+        timeDelta: the time step you want for the new frame
+    Returns:
+        NULL
+    """
+    
+    
+    
+
+
+    #get data from the grib object
+    grib_object = load_grib_file(grib_path)
+    firstRaster = grib_object.GetChild(0)
+    firstRaster.InitAttributes()
+    # print firstRaster
+    
+    #apply unit converstions
+    if convert_add != False:
+        for k in range(0,firstRaster.GetNodeCount()):
+            firstRaster.SetNodeValue(k, (firstRaster.GetNodeValue(k) + convert_add))
+            
+    if convert_mult != False:
+        for k in range(0,firstRaster.GetNodeCount()):
+            firstRaster.SetNodeValue(k, firstRaster.GetNodeValue(k) * convert_mult)
+    
+    #convert grib object to r2c attributes
+    cs = template_r2c_object.GetCoordinateSystem() 
+    #print cs
+    firstRaster.ConvertToCoordinateSystem(cs)
+    
+    
+    #convert time into pyEnSim format
+    timeStep = pyEnSim.CEnSimDateTime()
+    timeStep.Set(frametime.year, frametime.month, frametime.day, frametime.hour, 0, 0, 0)
+
+    
+    #copy data over
+    template_r2c_object.MapObjectDispatch(firstRaster)
+    template_r2c_object.SetCurrentFrameCounter(frameindex)
+    template_r2c_object.SetCurrentStep(frameindex)
+    template_r2c_object.SetCurrentStepTime(timeStep)
+    
+    #Save to file
+    template_r2c_object.AppendToMultiFrameASCIIFile(r2cTargetFileName,0)    
     
     
 

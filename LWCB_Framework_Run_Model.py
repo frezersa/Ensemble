@@ -105,40 +105,40 @@ def main():
     elif model_run == "DefaultHindcast":
         print "\nusing previously run spin up & running default hindcast\n"
         
-        #Prepare Directories
-        clean_up(config_file.repository_directory)
-        copy_resume(config_file, "Repo_spinup")
-        query_lwcb_db(config_file,
-                      start_date = config_file.historical_start_date,
-                      end_date = config_file.historical_end_date)
+        # #Prepare Directories
+        # clean_up(config_file.repository_directory)
+        # copy_resume(config_file, "Repo_spinup")
+        # query_lwcb_db(config_file,
+                      # start_date = config_file.historical_start_date,
+                      # end_date = config_file.historical_end_date)
         met_process.query_ec_datamart_hindcast(config_file)
         
-        #generate the event file, this may need to be executed again after the distribute data programs are run,
-        #not required in current setup
-        generate_hindcast_event_file(config_file,
-                                     start_date = config_file.historical_start_date,
-                                     resume_toggle = True, 
-                                     tbc_toggle = True)
+        # #generate the event file, this may need to be executed again after the distribute data programs are run,
+        # #not required in current setup
+        # generate_hindcast_event_file(config_file,
+                                     # start_date = config_file.historical_start_date,
+                                     # resume_toggle = True, 
+                                     # tbc_toggle = True)
                                      
-        calculate_distributed_data(config_file,
-                                   snow = False,
-                                   moist = False)
+        # calculate_distributed_data(config_file,
+                                   # snow = False,
+                                   # moist = False)
 
                                    
-        for i in members:
-          setup_members(config_file,i)
-          copy_memberevents(config_file,i)
-          member_path = os.path.join(os.path.dirname(os.path.dirname(config_file.repository_directory)), i)
-          copy_resume(config_file, "Repo_spinup", member_path=member_path)
+        # for i in members:
+          # setup_members(config_file,i)
+          # copy_memberevents(config_file,i)
+          # member_path = os.path.join(os.path.dirname(os.path.dirname(config_file.repository_directory)), i)
+          # copy_resume(config_file, "Repo_spinup", member_path=member_path)
 
-        # execute watflood and plot hydrographs
-        input = [[config_file,config_file.repository_directory,"False"]] #MotherShip input
-        for j,member in enumerate(members): #member input
-          member_repository = os.path.join(os.path.dirname(os.path.dirname(config_file.repository_directory)), member,"Repo")
-          input.append([config_file,member_repository,"False"])
+        # # execute watflood and plot hydrographs
+        # input = [[config_file,config_file.repository_directory,"False"]] #MotherShip input
+        # for j,member in enumerate(members): #member input
+          # member_repository = os.path.join(os.path.dirname(os.path.dirname(config_file.repository_directory)), member,"Repo")
+          # input.append([config_file,member_repository,"False"])
           
-        pool = multiprocessing.Pool(processes = len(members) + 1)
-        pool.map(execute_and_plot_hindcast,input)
+        # pool = multiprocessing.Pool(processes = len(members) + 1)
+        # pool.map(execute_and_plot_hindcast,input)
 
                                    
                                   

@@ -565,26 +565,33 @@ def query_ec_datamart_hindcast(config_file):
 
     # generate r2c from grib2
     print "Getting Precipitation Data /n"
-    cmd = ["python",
-          os.path.join(config_file.repository_directory, config_file.scripts_directory,"CaPAUpdate.py"),
-          "--RepoPath", config_file.grib_capa_repo,
-          "--startHour",config_file.capa_start_hour,
-          "--historicalStartDate",config_file.historical_start_date]
-    subprocess.call(cmd,shell=True)
+    # cmd = ["python",
+          # os.path.join(config_file.repository_directory, config_file.scripts_directory,"CaPAUpdate.py"),
+          # "--RepoPath", config_file.grib_capa_repo,
+          # "--startHour",config_file.capa_start_hour,
+          # "--historicalStartDate",config_file.historical_start_date]
+    # subprocess.call(cmd,shell=True)
+    hind_start_date = datetime.datetime.strptime(config_file.historical_start_date,"%Y/%m/%d")
+    capafilename = hind_start_date.strftime("%Y%m%d_met.r2c")
+    MetUpdate(config_file, 
+              r2c_target_path = os.path.join(config_file.historical_capa_path,capafilename), 
+              type = "CaPA", 
+              RepoPath = config_file.grib_capa_repo, 
+              r2c_template_path = os.path.join(config_file.repository_directory,config_file.lib_directory,"TEMPLATE_met.r2c"))
         
-    #GEM Temperature Data
-    print "Getting Temperature Data /n"
-    cmd = ["python",
-          os.path.join(config_file.repository_directory, config_file.scripts_directory,"TemperatureUpdate.py"),
-          "--RepoPath", config_file.grib_GEMTemps_repo]
-    subprocess.call(cmd,shell=True)
+    # #GEM Temperature Data
+    # print "Getting Temperature Data /n"
+    # cmd = ["python",
+          # os.path.join(config_file.repository_directory, config_file.scripts_directory,"TemperatureUpdate.py"),
+          # "--RepoPath", config_file.grib_GEMTemps_repo]
+    # subprocess.call(cmd,shell=True)
     
-    #create YYYYMMDD_dif.r2c file from temperature file
-    print "Calculating YYYYMMDD_dif.r2c file /n"
-    cmd = [config_file.rscript_path,
-          os.path.join(config_file.repository_directory,config_file.scripts_directory,"tempdiff.R"),
-          os.path.join(config_file.repository_directory,config_file.scripts_directory)]
-    subprocess.call(cmd,shell=True)
+    # #create YYYYMMDD_dif.r2c file from temperature file
+    # print "Calculating YYYYMMDD_dif.r2c file /n"
+    # cmd = [config_file.rscript_path,
+          # os.path.join(config_file.repository_directory,config_file.scripts_directory,"tempdiff.R"),
+          # os.path.join(config_file.repository_directory,config_file.scripts_directory)]
+    # subprocess.call(cmd,shell=True)
     
     
 def Download_Datamart_Hindcast(config_file,type,RepoPath):
@@ -619,6 +626,23 @@ def Download_Datamart_Hindcast(config_file,type,RepoPath):
         except:
             pass
     print "All of the files have been downloaded from:\n" + url
+    print "\n"
+    
+    #get the timestamp of the last file
+    pattern = filename_nomenclature + "(\d+)(_\d+.grib2)"
+
+    
+    m = re.match(pattern,filelist[-1])
+    if m:
+        lasttimestring = m.groups()[0]
+        lasttimestep = datetime.datetime.strptime(lasttimestring,"%Y%m%d%H")
+        
+        suffix = m.groups()[1]
+        grib_path_string = os.path.join(RepoPath,filename_nomenclature + "%Y%m%d%H" + suffix)
+
+
+    #datetime.datetime.strptime("%Y%m%d%H"
+    return lasttimestep, grib_path_string
     
     
     
@@ -628,17 +652,47 @@ def MetUpdate(config_file, r2c_target_path, type, RepoPath, r2c_template_path):
     Function to update r2c files with either CaPA data or Temperature data from the EC datamart
     """
     
+    if type == "CaPA":
+        timestep = 6
+    
     #Check datamart repository and download any data that isn't in local repository
-    Download_Datamart_Hindcast(config_file,type,RepoPath)
+    lastgribfiletime, grib_path_string = Download_Datamart_Hindcast(config_file,type,RepoPath)
     
     
     #load capa template and get coordinate system
-    r2c_template_object = pyEnSim_basics.load_r2c_template(r2c_template_path)
-    cs = r2c_template_object.GetCoordinateSystem()
+    template_r2c_object = pyEnSim_basics.load_r2c_template(r2c_template_path)
+
     
     #load capa r2c and get last frame and time
     lastindexframe, lasttimeframe = pyEnSim_basics.r2c_EndFrameData(r2c_target_path)
     
+    #get the last date in the grib file repository
+    print "The last frame is: " 
+    print lasttimeframe
+    print "the last gribfile is: "
+    print lastgribfiletime
+    print "\n"
+    
+
+    
     #starting at the next timestep, convert specified capa grib file and append to r2c file
+    current_time = lasttimeframe
+    current_index = lastindexframe
+    
+    while(current_time < lastgribfiletime):
+        current_time = current_time + datetime.timedelta(hours= timestep)
+        current_index = current_index + 1
+        current_gribpath = current_time.strftime(grib_path_string)
+        #print current_gribpath
+        
+        #convert and append grib file
+        pyEnSim_basics.grib_fastappend_r2c(grib_path = current_gribpath, 
+                            template_r2c_object = template_r2c_object, 
+                            r2cTargetFileName = r2c_target_path, 
+                            frameindex = current_index, 
+                            frametime = current_time, 
+                            convert_mult = False, convert_add = False)
+        print current_time
+
 
 
