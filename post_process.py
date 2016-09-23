@@ -16,12 +16,12 @@ def generate_hydrographs(config_file,member_directory,use_forecast):
     
     print "generating probablistic data"
     cmd = [config_file.rscript_path,
-          os.path.join(config_file.r_script_directory, config_file.r_script_analysis_resin),
+          os.path.join(config_file.r_script_directory, config_file.r_script_diagnostics_resin),
           os.path.join(member_directory,"scripts"), config_file.model_directory, use_forecast]
     subprocess.call(cmd,shell=True)
     
     cmd = [config_file.rscript_path,
-          os.path.join(config_file.r_script_directory, config_file.r_script_analysis_spl),
+          os.path.join(config_file.r_script_directory, config_file.r_script_diagnostics_spl),
           os.path.join(member_directory,"scripts"), config_file.model_directory, use_forecast]
     subprocess.call(cmd,shell=True)
     
@@ -50,7 +50,7 @@ def generate_meteorlogical_graphs(config_file):
     met_str_hindcast = os.path.join(source_dir, "wpegr", "radcl", met_hind_list[0]) #this assumes there is only one hindcast file
     
     #run the R-script to generate meteorological plots
-    cmd = [config_file.rscript_path, os.path.join(config_file.r_script_directory, config_file.r_script_forecast),
+    cmd = [config_file.rscript_path, os.path.join(config_file.r_script_directory, config_file.r_script_diagnostics_maps),
             config_file.r_script_directory,
             config_file.r_graphics_directory,
             met_str_forecast,

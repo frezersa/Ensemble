@@ -906,7 +906,7 @@ def update_model_folders(config_file):
     
     #create YYYYMMDD_dif.r2c file from temperature file
     print "Calculating YYYYMMDD_dif.r2c file \n"
-    cmd = [config_file.rscript_path, os.path.join(config_file.repository_directory, config_file.scripts_directory, "tempdiff.R"),
+    cmd = [config_file.rscript_path, os.path.join(config_file.repository_directory, config_file.scripts_directory, config_file.r_script_tempdiff),
                                     os.path.join(config_file.repository_directory, config_file.scripts_directory)]
 
     subprocess.call(cmd,shell=True)
@@ -1128,15 +1128,19 @@ class ConfigParse:
 
         # r must be added to path. Rscript is name to call from cmd
         self.rscript_path = "Rscript"
+        self.r_graphics_directory = os.path.join(self.repository_directory,"diagnostic")
+
+        # r script names for spl/resin analysis
+        self.r_script_diagnostics_spl = parameter_settings["r_script_diagnostics_spl"]
+        self.r_script_diagnostics_resin = parameter_settings["r_script_diagnostics_resin"]
+        self.r_script_diagnostics_maps = parameter_settings["r_script_diagnostics_maps"]
 
         # script names
-        # james single script
         self.r_script_lwcb_query = parameter_settings["r_script_lwcb_query"]
         self.r_script_lwcb_PT2query = parameter_settings["r_script_lwcb_PT2query"]
         self.r_script_r2cadjust = parameter_settings["r_script_r2cadjust"]
         self.r_script_lakelevels = parameter_settings["r_script_lakelevels"]
-        self.r_script_forecast = parameter_settings["r_script_forecast"]
-        #self.r_script_ensemblegraphs = parameter_settings["r_script_analysis_ensemble"]
+        self.r_script_tempdiff = parameter_settings["r_script_tempdiff"]
         self.lwcb_db_path = parameter_settings["lwcb_db_path"]
 
 
@@ -1177,13 +1181,7 @@ class ConfigParse:
         self.forecast_start_hour = parameter_settings["forecast_start_hour"] 
 
 
-        #= watflood configuration files
-        # write r script resin/spl png's for analysis
-        self.r_graphics_directory = os.path.join(self.repository_directory,"diagnostic")
 
-        # r script names for spl/resin analysis
-        self.r_script_analysis_spl = parameter_settings["r_script_analysis_spl"]
-        self.r_script_analysis_resin = parameter_settings["r_script_analysis_resin"]
 
         # location of adjustment scripts
         self.precip_adjust = parameter_settings["precip_adjust"]
