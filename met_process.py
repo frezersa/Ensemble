@@ -223,7 +223,7 @@ def grib2r2c_datamart(repos, wx_repo, r2c_template, datestamp_object, grib_repo)
         #loop through each timestep
         for j in range(StitchTimeStart/DeltaTimeStep,StitchTimeEnd/DeltaTimeStep+1):
             frame_index = frame_index + 1
-            ensemble_num = 1
+            
             if j == 1:
                 DeltaTime = StitchTimeStart
             else:
@@ -242,7 +242,7 @@ def grib2r2c_datamart(repos, wx_repo, r2c_template, datestamp_object, grib_repo)
 
             
             #get r2c destination filename
-            r2c_dest_filename = datestamp_object.strftime("%Y%m%d") + '_' + Grouping + '_' + "%02d" % Forecast + '-' + "%02d" % ensemble_num + '.r2c'
+            r2c_dest_filename = datestamp_object.strftime("%Y%m%d") + '_' + Grouping + '_' + "%02d" % Forecast + '-01.r2c'
             r2c_dest_filepath = os.path.join(r2c_dest_folder,r2c_dest_filename)
             
             r2c_template_object = pyEnSim_basics.load_r2c_template(r2c_template)
