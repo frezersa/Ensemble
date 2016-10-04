@@ -159,6 +159,7 @@ def repo_pull_datamart(repos,filePath,timestamp,repo_path):
         name = repos[1][i].replace('%T', str(DeltaTime).zfill(3))
         
         filename = url + name
+        # print filename
         
         #run wget
         if not os.path.isfile(today_repo_path + name): #if file does not exist locally
@@ -216,6 +217,11 @@ def grib2r2c_datamart(repos, wx_repo, r2c_template, datestamp_object, grib_repo)
     r2c_dest_folder = os.path.join(wx_repo, Grouping)
     
     frame_index = 0
+    if num_ensembles > 1:
+        ensemble = num_ensembles
+    else:
+        ensemble = False
+        
     for i in range(0,Stitches):
         StitchTimeStart = int(repos[5][i])
         StitchTimeEnd = int(repos[6][i])
@@ -250,23 +256,23 @@ def grib2r2c_datamart(repos, wx_repo, r2c_template, datestamp_object, grib_repo)
             
             if Grouping == "tem":
                 if j == 1:
-                    print grib_filepath
-                    pyEnSim_basics.grib_save_r2c(grib_filepath, r2c_template, r2c_dest_filepath, timestamp = datestamp_object, convert_add = -273.15)
+                    # print grib_filepath
+                    pyEnSim_basics.grib_save_r2c(grib_filepath, r2c_template, r2c_dest_filepath, timestamp = datestamp_object, convert_add = -273.15, ensemble = ensemble)
                 else:
                     pass
-                    print grib_filepath
-                    pyEnSim_basics.grib_fastappend_r2c(grib_filepath, r2c_template_object, r2c_dest_filepath, frame_index, frame_time, convert_add = -273.15)
+                    # print grib_filepath
+                    pyEnSim_basics.grib_fastappend_r2c(grib_filepath, r2c_template_object, r2c_dest_filepath, frame_index, frame_time, convert_add = -273.15, ensemble = ensemble)
                     
                     
             if Grouping == "met":
                 if j == 1:
-                    print grib_filepath
-                    pyEnSim_basics.grib_save_r2c(grib_filepath, r2c_template, r2c_dest_filepath, timestamp = datestamp_object)
+                    # print grib_filepath
+                    pyEnSim_basics.grib_save_r2c(grib_filepath, r2c_template, r2c_dest_filepath, timestamp = datestamp_object, ensemble = ensemble)
                 else:
-                    print "first raster" + grib_filepath
-                    print "previous raster" + oldgrib_filepath
-                    print "\n"
-                    pyEnSim_basics.grib_fastappend_r2c(grib_filepath, r2c_template_object, r2c_dest_filepath, frame_index, frame_time, grib_previous = oldgrib_filepath)
+                    # print "first raster" + grib_filepath
+                    # print "previous raster" + oldgrib_filepath
+                    # print "\n"
+                    pyEnSim_basics.grib_fastappend_r2c(grib_filepath, r2c_template_object, r2c_dest_filepath, frame_index, frame_time, grib_previous = oldgrib_filepath, ensemble = ensemble)
             
 
                     
@@ -323,6 +329,7 @@ def grib_to_r2c_nomads(repos, r2c_repo, r2c_template, datestamp_object, grib_rep
         
     #for each ensemble member (1-20)
     for i in range(1,num_ensembles+1):
+        # print i
         pbar = i/float(num_ensembles) * 40
         sys.stdout.write('\r')
         # the exact output you're looking for:
@@ -330,6 +337,7 @@ def grib_to_r2c_nomads(repos, r2c_repo, r2c_template, datestamp_object, grib_rep
         sys.stdout.flush()
 
         for j in range(DeltaTimeStart/DeltaTimeStep,DeltaTimeEnd/DeltaTimeStep + 1):
+            # print j
       
             #get file to convert
             DeltaTime = j * DeltaTimeStep
@@ -339,6 +347,7 @@ def grib_to_r2c_nomads(repos, r2c_repo, r2c_template, datestamp_object, grib_rep
             #get r2c destination filename
             r2c_dest_filename = datestamp_object.strftime("%Y%m%d") + '_' + Grouping + '_' + "%02d" % Forecast + '-' + "%02d" % i + '.r2c'
             r2c_dest_filepath = os.path.join(r2c_dest_folder,r2c_dest_filename)
+            print r2c_dest_filepath
 
 
             #get first file and convert to r2c
@@ -465,6 +474,8 @@ def query_ec_datamart_forecast(config_file):
            
       # print "Converting Data.... \n"
       for k in range(len(repos_parent)): #for each 'source section'
+        Type = repos_parent[k][8][0]
+        print Type
         print "Converting Forecast File(s): \n"
         if "NOMAD" in Type:
             grib_to_r2c_nomads(repos_parent[k], wx_path, r2c_template, datestamp_object, config_file.grib_forecast_repo)
@@ -488,7 +499,9 @@ def query_ec_datamart_hindcast(config_file):
     # generate r2c from grib2
     print "Getting Precipitation Data..."
     hind_start_date = datetime.datetime.strptime(config_file.historical_start_date,"%Y/%m/%d")
+    print hind_start_date
     capafilename = hind_start_date.strftime("%Y%m%d_met.r2c")
+    print capafilename
     MetUpdate(config_file, 
               r2c_target_path = os.path.join(config_file.historical_capa_path,capafilename), 
               type = "CaPA", 
@@ -702,7 +715,7 @@ def MetUpdate(config_file, r2c_target_path, type, RepoPath, r2c_template_path):
                                 r2cTargetFileName = r2c_target_path, 
                                 frameindex = current_index, 
                                 frametime = current_time, 
-                                convert_mult = False, convert_add = False)
+                                convert_mult = False, convert_add = False, ensemble = False)
             print current_time
             
             
@@ -745,7 +758,7 @@ def MetUpdate(config_file, r2c_target_path, type, RepoPath, r2c_template_path):
                                 r2cTargetFileName = r2c_target_path, 
                                 frameindex = current_index, 
                                 frametime = current_time, 
-                                convert_mult = False, convert_add = -273.15)
+                                convert_mult = False, convert_add = -273.15, ensemble = False)
         
 
 

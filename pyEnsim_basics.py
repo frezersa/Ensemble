@@ -58,11 +58,13 @@ def grib_save_r2c(grib_path, r2c_template_path, r2cTargetFileName, timestamp = d
    #get  data from the grib object
     grib_object = load_grib_file(grib_path)
     
-    if ensemble is True:
-        rasterCount = grib_object.GetChildrenCount()
+    if ensemble is not False:
+        rasterCount = min(grib_object.GetChildrenCount(),ensemble)
     else:
         rasterCount = 1
-    r2cTargetFileNamebase = re.sub("\d\d.r2c","",r2cTargetFileName) #remove the last digits and suffix from the file name, to be added later
+    r2cTargetFileNamebase = re.split("\d\d.r2c",r2cTargetFileName)[0] #remove the last digits and suffix from the file name, to be added later
+    # print r2cTargetFileName
+    # print r2cTargetFileNamebase
     
     #get the r2c object and its attributes
     r2c_object = load_r2c_template(r2c_template_path)
@@ -70,7 +72,13 @@ def grib_save_r2c(grib_path, r2c_template_path, r2cTargetFileName, timestamp = d
 
     
     for i in range(0,rasterCount):
-        r2cTargetFileName = r2cTargetFileNamebase + "%02d" % i + ".r2c"
+        print "rastercount" + str(i)
+        
+        if ensemble is not False:   
+            r2cTargetFileName = r2cTargetFileNamebase + "%02d" % (i+1) + ".r2c"
+        else:
+            pass
+            
         firstRaster = grib_object.GetChild(i)
         firstRaster.InitAttributes()
         
@@ -102,7 +110,89 @@ def grib_save_r2c(grib_path, r2c_template_path, r2cTargetFileName, timestamp = d
         r2c_object.SaveToMultiFrameASCIIFile(r2cTargetFileName,0)
         
     
+   
+def grib_fastappend_r2c(grib_path, template_r2c_object, r2cTargetFileName, frameindex, frametime, convert_mult = False, convert_add = False, ensemble = False, grib_previous = False):
+    """
+    converts a single grib file and appends to an r2c file. A template file must be given so the grib data
+    is interpolated onto the template grid (not sure what interpolation technique is used but
+    it seems fairly robust). The template must have the same attributes as the target file. Unfortunately
+    the target attributes cannot be extracted without a time consuming conversion to binary (hence why
+    the small tamplate file is required)
     
+    Args:
+        grib_object: a single frame object, if multiple frames, the function only used the first one
+        r2c_template: template must have same attributes as the target r2c
+        r2cTargetFileName: location of the r2c file that you want to append the new data to
+        timeDelta: the time step you want for the new frame
+    Returns:
+        NULL
+    """
+    
+    #get data from the grib object
+    grib_object = load_grib_file(grib_path)
+    
+    if ensemble is not False:
+        rasterCount = min(grib_object.GetChildrenCount(),ensemble)
+        
+    else:
+        rasterCount = 1
+    r2cTargetFileNamebase = re.split("\d\d.r2c",r2cTargetFileName)[0] #remove the last digits and suffix from the file name, to be added later
+        
+    for i in range(0,rasterCount):
+        if ensemble is not False:
+            r2cTargetFileName = r2cTargetFileNamebase + "%02d" % (i+1) + ".r2c"
+        else:
+            pass
+
+        firstRaster = grib_object.GetChild(i)
+        firstRaster.InitAttributes()
+        finalRaster = firstRaster
+        
+        if grib_previous is not False:
+            grib_previous_object = load_grib_file(grib_previous)
+            previousRaster = grib_previous_object.GetChild(i)
+            previousRaster.InitAttributes()
+            
+            
+            for k in range(0, firstRaster.GetNodeCount()+1):
+                rainvalue = firstRaster.GetNodeValue(k) - previousRaster.GetNodeValue(k)
+                if rainvalue < 0:
+                    rainvalue = 0
+                finalRaster.SetNodeValue(k, rainvalue)
+                
+            
+
+        
+        #apply unit converstions
+        if convert_add != False:
+            for k in range(0,finalRaster.GetNodeCount()):
+                finalRaster.SetNodeValue(k, (finalRaster.GetNodeValue(k) + convert_add))
+                
+        if convert_mult != False:
+            for k in range(0,finalRaster.GetNodeCount()):
+                finalRaster.SetNodeValue(k, finalRaster.GetNodeValue(k) * convert_mult)
+        
+        #convert grib object to r2c attributes
+        cs = template_r2c_object.GetCoordinateSystem() 
+        finalRaster.ConvertToCoordinateSystem(cs)
+        
+        
+        #convert time into pyEnSim format
+        timeStep = pyEnSim.CEnSimDateTime()
+        timeStep.Set(frametime.year, frametime.month, frametime.day, frametime.hour, 0, 0, 0)
+
+        
+        #copy data over
+        template_r2c_object.MapObjectDispatch(finalRaster)
+        template_r2c_object.SetCurrentFrameCounter(frameindex)
+        template_r2c_object.SetCurrentStep(frameindex)
+        template_r2c_object.SetCurrentStepTime(timeStep)
+        
+        #Save to file
+        template_r2c_object.AppendToMultiFrameASCIIFile(r2cTargetFileName,0)    
+        
+        
+
 
     
 def r2c_EndFrameData(r2cTargetFilePath):
@@ -182,84 +272,6 @@ def grib_append_r2c(grib_path, r2c_template_path, r2cTargetFileName, timeDelta, 
     #Save to file
     r2c_object.AppendToMultiFrameASCIIFile(r2cTargetFileName,0)    
     
-    
-def grib_fastappend_r2c(grib_path, template_r2c_object, r2cTargetFileName, frameindex, frametime, convert_mult = False, convert_add = False, ensemble = True, grib_previous = False):
-    """
-    converts a single grib file and appends to an r2c file. A template file must be given so the grib data
-    is interpolated onto the template grid (not sure what interpolation technique is used but
-    it seems fairly robust). The template must have the same attributes as the target file. Unfortunately
-    the target attributes cannot be extracted without a time consuming conversion to binary (hence why
-    the small tamplate file is required)
-    
-    Args:
-        grib_object: a single frame object, if multiple frames, the function only used the first one
-        r2c_template: template must have same attributes as the target r2c
-        r2cTargetFileName: location of the r2c file that you want to append the new data to
-        timeDelta: the time step you want for the new frame
-    Returns:
-        NULL
-    """
-    
-    #get data from the grib object
-    grib_object = load_grib_file(grib_path)
-    
-    if ensemble is True:
-        rasterCount = grib_object.GetChildrenCount()
-    else:
-        rasterCount = 1
-    r2cTargetFileNamebase = re.sub("\d\d.r2c","",r2cTargetFileName) #remove the last digits and suffix from the file name, to be added later
-        
-    for i in range(0,rasterCount):
-        r2cTargetFileName = r2cTargetFileNamebase + "%02d" % i + ".r2c"
-
-        firstRaster = grib_object.GetChild(i)
-        firstRaster.InitAttributes()
-        finalRaster = firstRaster
-        
-        if grib_previous is not False:
-            grib_previous_object = load_grib_file(grib_previous)
-            previousRaster = grib_previous_object.GetChild(i)
-            previousRaster.InitAttributes()
-            
-            
-            for k in range(0, firstRaster.GetNodeCount()+1):
-                rainvalue = firstRaster.GetNodeValue(k) - previousRaster.GetNodeValue(k)
-                if rainvalue < 0:
-                    rainvalue = 0
-                finalRaster.SetNodeValue(k, rainvalue)
-                
-            
-
-        
-        #apply unit converstions
-        if convert_add != False:
-            for k in range(0,finalRaster.GetNodeCount()):
-                finalRaster.SetNodeValue(k, (finalRaster.GetNodeValue(k) + convert_add))
-                
-        if convert_mult != False:
-            for k in range(0,finalRaster.GetNodeCount()):
-                finalRaster.SetNodeValue(k, finalRaster.GetNodeValue(k) * convert_mult)
-        
-        #convert grib object to r2c attributes
-        cs = template_r2c_object.GetCoordinateSystem() 
-        finalRaster.ConvertToCoordinateSystem(cs)
-        
-        
-        #convert time into pyEnSim format
-        timeStep = pyEnSim.CEnSimDateTime()
-        timeStep.Set(frametime.year, frametime.month, frametime.day, frametime.hour, 0, 0, 0)
-
-        
-        #copy data over
-        template_r2c_object.MapObjectDispatch(finalRaster)
-        template_r2c_object.SetCurrentFrameCounter(frameindex)
-        template_r2c_object.SetCurrentStep(frameindex)
-        template_r2c_object.SetCurrentStepTime(timeStep)
-        
-        #Save to file
-        template_r2c_object.AppendToMultiFrameASCIIFile(r2cTargetFileName,0)    
-        
-        
-
+ 
     
    
