@@ -2,6 +2,7 @@
 Library of functions that are called by LWCB_Framework_Run_Model.py
 '''
 
+#import standard modules
 import datetime
 import os
 import subprocess
@@ -28,11 +29,17 @@ import pre_process
     
 
     
-def clean_up(repository_directory, tem = True, met = True):
+def clean_up(config_file, tem = True, met = True):
     """
-    removes files from folders prior to execution of framework.
-    example repository_directory is "C:\WR_Ensemble\A_MS\Repo", 
-    which contains 'wpegr, diagnostic, wxdata, etc'
+    Removes files from folders prior to execution of framework.
+
+    Args:
+        repository_directory: directory which should be cleaned
+            example is "C:\WR_Ensemble\A_MS\Repo", which contains 
+            'wpegr, diagnostic, wxdata, etc'
+    
+    Returns:
+        NULL
     """
     print "Cleaning up old files..."
     
@@ -41,45 +48,53 @@ def clean_up(repository_directory, tem = True, met = True):
         
     # delete folders in model directory. removes all files.
     for i in directories:
-        if os.path.exists(os.path.join(repository_directory,"wpegr",i)):
-          shutil.rmtree(os.path.join(repository_directory,"wpegr",i))
+        if os.path.exists(os.path.join(config_file.model_directory_path,i)):
+          shutil.rmtree(os.path.join(config_file.model_directory_path,i))
           
     # create blank directories in model directory
     for i in directories:
-        os.mkdir(os.path.join(repository_directory,"wpegr",i))
+        os.mkdir(os.path.join(config_file.model_directory_path,i))
     
     # remove forecast weather data r2c's
     # files from met/ & /tem dirs
     if tem:
-      path = os.path.join(repository_directory,"wxData","tem","*.*")
+      path = os.path.join(config_file.repository_directory, config_file.weather_data_directory,"tem","*.*")
       files = glob.glob(path)
       for i in files:
           os.remove(i)
           
     if met:
-      path = os.path.join(repository_directory,"wxData","met","*.*")
+      path = os.path.join(config_file.repository_directory, config_file.weather_data_directory,"met","*.*")
       files = glob.glob(path)
       for i in files:
           os.remove(i)
     
     # remove r generate analysis png's
-    path = os.path.join(repository_directory,"diagnostic","*.*")
+    path = os.path.join(config_file.repository_directory, config_file.r_graphics_directory,"*.*")
     files = glob.glob(path)
     for i in files:
         os.remove(i)
         
-    # remove forecast csvs
-    path = os.path.join(repository_directory,"forecast","*.*")
+    # remove forecast files
+    path = os.path.join(config_file.repository_directory,config_file.forecast_directory,"*.*")
     files = glob.glob(path)
     for i in files:
         os.remove(i)
         
     
 
-def generate_spinup_event_files(config_file,start_date,end_date):
+def generate_spinup_event_files(config_file, start_date, end_date):
     """
-    event files specific to spin up. end date is provided as full date to end of last year to lwcb db. must be endYear0101.
+    Event files specific to spin up. end date is provided as full date to end of last year to lwcb db. must be endYear0101.
+    
+    Args:
+        config_file: see class ConfigParse
+        start_date: string in the format "YYYY/MM/DD", typically "YYYY/01/01"
+        end_date: string in the format "YYYY/MM/DD", typically "YYYY/01/01"
+    Returns:
+        NULL - but generates .evt files (ASCII)
     """
+    
     print "Generating Event Files" 
     #Parse Start and end dates
     start_date = datetime.datetime.strptime(start_date,"%Y/%m/%d")
@@ -102,14 +117,10 @@ def generate_spinup_event_files(config_file,start_date,end_date):
     Spinup_Years = range(start_year,end_year+1)
     
 
-    
     #loop through each year
     for i,event_year in enumerate(Spinup_Years):
       event_start = str(event_year) + "/01/01"
       
-
-
-
       #first event file
       if i == 0:
         stringtoappend = "0101.evt"
@@ -142,9 +153,13 @@ def generate_spinup_event_files(config_file,start_date,end_date):
 
     
        
-def generate_spinup_generic_files(config_file,start_date):
+def generate_spinup_generic_files(config_file, start_date):
     """
-    generates generic data files only for spin up.  generated from templates at /../lib/
+    Generates generic data files only for spin up.  generated from templates in the 'lib' directory
+    
+    Args:
+        config_file: see class ConfigParse
+        start_date: string in the format "YYYY/MM/DD", typically "YYYY/01/01"
 
     """
     
@@ -159,18 +174,20 @@ def generate_spinup_generic_files(config_file,start_date):
     
 
 
-def query_lwcb_db(config_file,start_date,end_date):
+def query_lwcb_db(config_file, start_date, end_date):
     """
-    query lwcb db & convert to required tb0 format. 
-    
-    will use existing R scripts to accomplish. output folders in model directory are hardcoded.
+    Query lwcb db & convert to required tb0 format. This is sub'd out to an R-script.
+
+    Args:
+        config_file: see class ConfigParse
+        start_date: string in the format "YYYY/MM/DD"
+        end_date: string in the format "YYYY/MM/DD"
+    Returns:
+        NULL - but generates WATFLOOD .tb0 files
     """
-    
-    # execute R script. 
-    # format to call script is: :: diver -- C:\"Program Files"\R\R-3.0.2\bin\i386\Rscript C:\1_tmp\branches\R\WriteTBOs_modified\LWCBtoTBO.R "C:\1_tmp\branches\R\WriteTBOs_modified" "C:\1_tmp\branches\R\WriteTBOs_modified" "diver" "diver" "2011/01/01" "2012/12/31" "X:/Rlibrary/lwcb_Rimport.mdb" "Root_R, 5"
-    # scriptRootDirectory required for relative path in scripts for library import
     
     print "Getting historical data from DB..."
+    
     # res releases
     if config_file.use_resrel == "True":
       cmd = [config_file.rscript_path,
@@ -211,7 +228,7 @@ def query_lwcb_db(config_file,start_date,end_date):
           config_file.nudge_strmflws]
     subprocess.call(cmd,shell=True)
     
-    # db precipitation if no capa
+    # database precipitation if no CaPA
     if config_file.use_capa == "False":  
         # precipitation
         cmd = [config_file.rscript_path,
@@ -239,7 +256,6 @@ def query_lwcb_db(config_file,start_date,end_date):
           config_file.nudge_strmflws]
     subprocess.call(cmd,shell=True)
     
-
     # stream flow
     cmd = [config_file.rscript_path,
           os.path.join(config_file.r_script_directory, config_file.r_script_lwcb_query),
@@ -253,7 +269,7 @@ def query_lwcb_db(config_file,start_date,end_date):
           config_file.nudge_strmflws]
     subprocess.call(cmd,shell=True)
       
-    # temperature
+    # database temperature (point) if not using GEM data
     if config_file.use_GEMTemps == "False":
       cmd = [config_file.rscript_path,
             os.path.join(config_file.r_script_directory, config_file.r_script_lwcb_query),
@@ -275,22 +291,23 @@ def setup_members(config_file,member):
     copy and modify the reservoir release files
 
     Args:
-    config_file: see class ConfigParse
-    member: name of hydrological ensemble member
+        config_file: see class ConfigParse
+        member: name of hydrological ensemble member
     
     Returns:
-    Null
+        NULL
     """
     
     #clean up the member repository
-    member_repository = os.path.join(os.path.dirname(os.path.dirname(config_file.repository_directory)), member,"Repo")
+    member_repository = os.path.join(os.path.dirname(os.path.dirname(config_file.repository_directory)), member, "Repo")
     clean_up(member_repository)
         
     #copy the reservoir release files from the 'mothership' and modify the coefficients as required
-    CopyModResrl(os.path.join(config_file.repository_directory,"wpegr","resrl"),
-                 os.path.join(member_repository,"wpegr","resrl"),
-                 os.path.join(member_repository,"lib","template_rel.tb0"))
+    CopyModResrl(os.path.join(config_file.repository_directory, model_directory, "resrl"),
+                 os.path.join(member_repository, config_file.model_directory, "resrl"),
+                 os.path.join(member_repository, config_file.lib_directory, "template_rel.tb0"))
 
+                 
                  
 def copy_memberevents(config_file,member):
     """
@@ -298,18 +315,19 @@ def copy_memberevents(config_file,member):
     changes paths of specified files back to the 'mothership' directory
 
     Args:
-    config_file: see class ConfigParse
-    member: name of hydrological ensemble member
+        config_file: see class ConfigParse
+        member: name of hydrological ensemble member
     
     Returns:
-    NULL
+        NULL
     """
     
     member_repository = os.path.join(os.path.dirname(os.path.dirname(config_file.repository_directory)), member,"Repo")
     
-    CopyModEvent(os.path.join(config_file.repository_directory,"wpegr","event"),
-                 os.path.join(member_repository,"wpegr","event"),
+    CopyModEvent(os.path.join(config_file.model_directory_path,"event"),
+                 os.path.join(member_repository,model_directory,"event"),
                  "NA")
+                 
                  
                  
 def execute_and_plot_spinup(input):
@@ -321,12 +339,13 @@ def execute_and_plot_spinup(input):
     The multiple input requirement is bypassed by joining them in a tuple and parsing them inside the function
     
     Args:
-    input: list of 3 arguments
+        input: list of 3 arguments
             input[0]: config_file - see class ConfigParse
             input[1]: member directory - specifies which hydrogolical member of ensemble is used
+            input[2]: use_forecast - toggle for plotting on whether to append forecast, set to False for the spinup
             
     Returns:
-    NULL
+        NULL
     """
     
     #parse input
@@ -335,19 +354,18 @@ def execute_and_plot_spinup(input):
     use_forecast = input[2]
     
     #execute spinup
-    execute_watflood(config_file,member_directory)
+    execute_watflood(config_file, member_directory)
     
-
     #plot results
-    post_process.generate_hydrographs(config_file,member_directory,use_forecast) 
+    post_process.generate_hydrographs(config_file, member_directory,use_forecast) 
   
     #copy results
     print member_directory
     if os.path.exists(os.path.join(os.path.dirname(member_directory), "Repo_spinup")):
-        shutil.rmtree(os.path.join(os.path.dirname(member_directory), "Repo_spinup"), onerror=onerror)
+        shutil.rmtree(os.path.join(os.path.dirname(member_directory), "Repo_spinup"), onerror = onerror)
     shutil.copytree(os.path.join(os.path.dirname(member_directory), "Repo"),
                                 os.path.join(os.path.dirname(member_directory), "Repo_spinup"),
-                                ignore = shutil.ignore_patterns("wxData", "bin"))
+                                ignore = shutil.ignore_patterns(config_file.weather_data_directory, config_file.bin_directory))
                                 
                                 
                                 
@@ -360,12 +378,13 @@ def execute_and_plot_hindcast(input):
     The multiple input requirement is bypassed by joining them in a tuple and parsing them inside the function
     
     Args:
-    input: list of 3 arguments
+        input: list of 3 arguments
             input[0]: config_file - see class ConfigParse
             input[1]: member directory - specifies which hydrogolical member of ensemble is used
+            input[2]: use_forecast - toggle for plotting on whether to append forecast, set to False for the hindcast
             
     Returns:
-    NULL
+        NULL
     """
     
     #parse inpute
@@ -374,19 +393,19 @@ def execute_and_plot_hindcast(input):
     use_forecast = input[2]
     
     #execute hindcast
-    execute_watflood(config_file,member_directory)
+    execute_watflood(config_file, member_directory)
 
-    
     #plot results
     post_process.generate_hydrographs(config_file,member_directory,use_forecast) 
   
     #copy results
     print member_directory
     if os.path.exists(os.path.join(os.path.dirname(member_directory), "Repo_hindcast")):
-        shutil.rmtree(os.path.join(os.path.dirname(member_directory), "Repo_hindcast"), onerror=onerror)
+        shutil.rmtree(os.path.join(os.path.dirname(member_directory), "Repo_hindcast"), onerror = onerror)
     shutil.copytree(os.path.join(os.path.dirname(member_directory), "Repo"),
                                 os.path.join(os.path.dirname(member_directory), "Repo_hindcast"),
-                                ignore = shutil.ignore_patterns("wxData", "bin"))
+                                ignore = shutil.ignore_patterns(config_file.weather_data_directory, config_file.bin_directory))
+                                
                                 
                                 
 def execute_and_save_forecast(input):
@@ -398,13 +417,13 @@ def execute_and_save_forecast(input):
     The multiple input requirement is bypassed by joining them in a tuple and parsing them inside the function
     
     Args:
-    input: list of 3 arguments
+        input: list of 3 arguments
             input[0]: config_file - see class ConfigParse
             input[1]: member directory - specifies which hydrogolical member of ensemble is used
             input[2]: RunName - specifies which meteorological ensemble member used
             
     Returns:
-    NULL
+        NULL
     """
     
     #parse input file
@@ -416,8 +435,11 @@ def execute_and_save_forecast(input):
     execute_watflood(config_file,member_directory)
   
     #save results to common folder
-    shutil.copyfile(member_directory + "/wpegr/results/spl.csv",member_directory + "/forecast/" + "spl" + RunName + ".csv")
-    shutil.copyfile(member_directory + "/wpegr/results/resin.csv",member_directory + "/forecast/" + "resin" + RunName + ".csv")
+    shutil.copyfile(os.path.join(member_directory, config_file.model_directory, "results", "spl.csv"),
+                    os.path.join(member_directory, config_file.forecast_directory, "spl" + RunName + ".csv"))
+                    
+    shutil.copyfile(os.path.join(member_directory, config_file.model_directory, "results", "resin.csv"),
+                    os.path.join(member_directory, config_file.forecast_directory, "resin" + RunName + ".csv"))
     
     
     
@@ -431,18 +453,21 @@ def analyze_and_plot_forecast(input):
     The multiple input requirement is bypassed by joining them in a tuple and parsing them inside the function
     
     Args:
-    input: list of 3 arguments
+        input: list of 3 arguments
             input[0]: config_file - see class ConfigParse
             input[1]: member directory - specifies which hydrogolical member of ensemble is used
+            input[2]: use_forecast - toggle for plotting on whether to append forecast, set to True for Forecast
             
     Returns:
-    NULL
+        NULL
     """
+    
     config_file = input[0]
     member_directory = input[1]
+    use_forecast = input[2]
     
     #plot results
-    post_process.generate_hydrographs(config_file,member_directory, "True") 
+    post_process.generate_hydrographs(config_file,member_directory, use_forecast) 
   
     #copy results
     print member_directory
@@ -475,7 +500,7 @@ def onerror(func, path, exc_info):
         raise
         
         
-def CopyModEvent(mothership_dir,member_dir,keywords="NA"):
+def CopyModEvent(mothership_dir, member_dir, keywords = "NA"):
     """
     Function specifically for hydrological ensemble modelling. Copies event files to different 
     member directory and changes paths of specified files back to the 'mothership' directory.
@@ -485,7 +510,7 @@ def CopyModEvent(mothership_dir,member_dir,keywords="NA"):
           keywords: flags found in event file that need changing
           
     Returns:
-    NULL
+        NULL
     """
     
     #get path and names of event files
@@ -526,6 +551,7 @@ def CopyModEvent(mothership_dir,member_dir,keywords="NA"):
             file.write('\n')
             
             
+            
 def CopyModResrl(mothership_dir,member_dir,template):
     """
     Function to copy reservoir release files from the 'mothership' directory and change the 
@@ -540,7 +566,7 @@ def CopyModResrl(mothership_dir,member_dir,template):
                     needs to have the same number and order of reservoirs as the mothership
                     
     Returns:
-    NULL
+        NULL
     """
 
     #find all of the release files in the mothership 'resrl' directory 
@@ -600,7 +626,13 @@ def CopyModResrl(mothership_dir,member_dir,template):
 def parse_configuration_file(configuration_file):
     """
     parse configuration file name:value into a dict.
-    used to create class ConfigParse
+    used inside class ConfigParse
+    
+    Args:
+        configuration_file: path to config file
+        
+    Returns:
+        parameter_settings: dictionary of all the data in the config text file
     """
     
     config_script = open(configuration_file,"r").readlines()
@@ -618,7 +650,7 @@ def parse_configuration_file(configuration_file):
                 tmp = e.strip()
                 # parse key:name into dict
                 key,value = tmp.split(":",1)
-                parameter_settings[key]=value
+                parameter_settings[key] = value
     
     return parameter_settings
 
@@ -631,6 +663,9 @@ def getDateTime(hours):
     
     Args:
         hours: integer, see grib2r2c function
+        
+    Returns:
+        newdate: today's date at time = 0
     """
     tm = datetime.datetime.now()
     newdate = datetime.datetime(tm.year, tm.month, tm.day, 0, 0, 0)
@@ -643,8 +678,12 @@ def getDateTime(hours):
 def build_dir(directory):
     """
     checks to see if a directory exists and creates it if it does not
+    
     Args:
         build_dir: directory path
+        
+    Returns:
+        NULL - but may build a directory 
     """
 
     d = os.path.dirname(directory)
@@ -656,12 +695,16 @@ def generate_hindcast_event_file(config_file, start_date, resume_toggle = False,
     """
     creates event file with :noeventstofollow set to 0. used to run distribution executables.
     
-    file must be created prior to watflood model. this event file is overwritten after distribution executables with
-    updated file for watflood.
+    Args:
+        config_file: see class ConfigParse
+        start_date: string in the format 'YYYY/MM/DD'
+        resume_toggle: turns the resumeflg on or off in event file
+        tbc_toggle: turns the tbcflg on or off in event file
+        
+    Returns:
+        NULL - but generates .evt file
     """
-    
 
-    
     if resume_toggle is True:
         resflag = "y"
     else:
@@ -679,35 +722,42 @@ def generate_hindcast_event_file(config_file, start_date, resume_toggle = False,
                              flags = [[":resumflg", resflag,],[":tbcflg", tflag]])
                              
 
-    
-                             
-                             
                              
 
-def generate_run_event_files_forecast(config_file,members):
+def generate_run_event_files_forecast(config_file, members):
     """
-    create watflood model event files for historic & forecast. 
+    Creates the event files, executes WATFLOOD and saves output for each of the ensemble met forecasts.
+    The met files in the radcl folder are referenced as the master list. If corresponding files are not found
+    (ie. there are multiple met ensemble files but only a single temperature file) in the tempr directory, 
+    the last working temperature files are used.
     
-    update the historical event flag :resumflg to 'y'
+    If multiple hydrological ensembles are being used, these are executed in parallel.
+    
+    Args:
+        config_file: see class ConfigParse
+        members: list of hydrological ensemble members
+     
+    Returns:
+        NULL - but produces event files, executes WATFLOOD and saves results files
     """
     print "Generating event files and executing WATFLOOD..."
 
 
-    #get list of met files
+    #get list of met and temp files
     met_list = sorted(os.listdir(config_file.model_directory_path + "/radcl"))
     tempr_list = os.listdir(config_file.model_directory_path + "/tempr")
     tem_list = sorted([s for s in tempr_list if "tem" in s])
     dif_list = sorted([s for s in tempr_list if "dif" in s])
     
+    #Use the met files as the 'master copy', get the simulation # from each filename
     RunNumber = [re.findall(r'met_(\d+)-(\d+).+', s) for s in met_list]
     
-   
-    
+    #for each simulation in the 'master'
     for i,Run in enumerate(RunNumber):
+      #Parse simulation Run number
       RunName = Run[0][0] + '-' + Run[0][1]
       print "Running Scenario: " + RunName
-      # generate the forecast event file
-      
+
       #assign the temperature file name, if it doesn't exist, use the most recent working temperature file
       try:
         tem_list[i]
@@ -717,7 +767,7 @@ def generate_run_event_files_forecast(config_file,members):
         new_temperature_file = tem_list[i]
         new_tempdiff_file = dif_list[i]
         
-      
+      #generate the event file, changing the met and tem references accordingly
       pre_process.EventGenerator(config_file, 
                          start_date = config_file.forecast_date, 
                          first_event = True, 
@@ -733,20 +783,28 @@ def generate_run_event_files_forecast(config_file,members):
         copy_memberevents(config_file,i)
 
       #execute parallel program to loop through each met forecast and run watflood
+      #set input for Mothership and inputs, this can be done in a loop because it is fast
       input = [[config_file,config_file.repository_directory,RunName]] #MotherShip input
       for j,member in enumerate(members): #member input
           member_repository = os.path.join(os.path.dirname(os.path.dirname(config_file.repository_directory)), member,"Repo")
           input.append([config_file,member_repository,RunName])
           
+      #execute and save each member in parallel
       pool = multiprocessing.Pool(processes = len(members) + 1)
       pool.map(execute_and_save_forecast,input)
+        
         
 
 def generate_forecast_streamflow_file(config_file):
     """
-    sets stations to -1 to only get natural flows from reservoirs.
+    Generates Streamflow file for the forecast. Streams need to have a '-1' for each day that the forecast runs
+    because WATFLOOD bases it's duration off this file
     
-    forecast startdate required
+    Args:
+        config_file: see class ConfigParse
+        
+    Returns:
+        NULL - but generates *_str.tb0 file
     """
     
     # forecast start date used
@@ -755,12 +813,18 @@ def generate_forecast_streamflow_file(config_file):
 
 def generate_forecast_releases_file(config_file):
     """
-    sets station co-efficents to 0.
+    Generates reservoir release file for forecast. This sets the reservoir releases to -1 for any reservoir that has a volume-discharge curve,
+    and to today's estimated release for any reservoir where outflow is forced. This discharge is assumed for the duration of the forecast.
+    An R-script is used to do this as it queries the LWCB database.
     
-    forecast startdate required & --forecast flag to set true to write 0 coffiecents for selected stations in config file.
+    Args:
+        config_file: see class ConfigParse
+        
+    Retunrs:
+        NULL - but generates *_rel.tb0 file
     """
     
-    # --hour is optional. not implemented as it defaults to 00. --forecast to write zeros in coeffiecents for selected stations in config file.
+    #set Rscript command
     cmd = [config_file.rscript_path,os.path.join(config_file.r_script_directory,config_file.r_script_lwcb_query),
                                       config_file.r_script_directory,config_file.model_directory_path,"resrl","rel",
                                       config_file.forecast_date,config_file.forecast_date,
@@ -770,26 +834,33 @@ def generate_forecast_releases_file(config_file):
 
 def generate_forecast_inflows_file(config_file):
     """
-    sets stations to -1.
+    Generates Reservoir Inflow file for the forecast. Inflows are '-1' for each day that the forecast runs. This ensures that a resin.csv file
+    is created for these reservoirs.
     
-    forecast startdate required
+    Args:
+        config_file: see class ConfigParse
+        
+    Returns:
+        NULL - but generates *_rin.tb0 file
     """
-    
-
+    # forecast start date used
     pre_process.ResInflowGenerator(config_file, "TEMPLATE_rin.tb0", start_date = config_file.forecast_date, NumDays = 10)
 
 
 
 def generate_forecast_diversions_file(config_file):
     """
-    sets diversion file to 0.
+    Generates diversion release file for forecast. This sets the Root River diversion to today's estimated release. 
+    This released is assumed for the duration of the forecast. An R-script is used to do this as it queries the LWCB database.
     
-    forecast startdate required
+    Args:
+        config_file: see class ConfigParse
+        
+    Retunrs:
+        NULL - but generates *_div.tb0 file
     """
     
-    # generate div_pt2, write to level directory
-    # cmd = ["python",os.path.join(repository_directory,scripts_directory,"GenericTemplateWritter.py"),"TEMPLATE_div.tb0",os.path.join(model_directory_path,"diver"),"div.tb0",forecast_date]
-    # subprocess.call(cmd,shell=True)
+    # generate div_pt2, write to diver directory
     cmd = [config_file.rscript_path,os.path.join(config_file.r_script_directory,config_file.r_script_lwcb_query),config_file.r_script_directory,
           config_file.model_directory_path,"diver","diver",config_file.forecast_date,config_file.forecast_date,
           config_file.lwcb_db_path,config_file.lwcb_station_diver]
@@ -800,8 +871,13 @@ def generate_forecast_diversions_file(config_file):
 
 def generate_forecast_files(config_file):
     """
-    generates following 4 forecast files. streamflow, reserviour release, resevoir inflows & diversions. following :endheader tag, 10 days of rows populated
-    with either -1 or 0. 
+    Generates following 4 forecast files. streamflow, reserviour release, resevoir inflows & diversions.
+    
+    Args:
+        config_file: see class ConfigParse
+        
+    Retunrs:
+        NULL - but generates .tb0 files
     """
     
     print "Generating streamflow, reservoir and diversion forecast files..."
@@ -810,27 +886,19 @@ def generate_forecast_files(config_file):
     generate_forecast_inflows_file(config_file)
     generate_forecast_diversions_file(config_file)
 
-    
-
-def generate_historic_files(start_date,repository_directory,scripts_directory):
-    """
-    creates historical files necessary for operational use. generated from template files found in model_repository/lib.
-    """
-    
-    # generates historical release file using a template.
-    # --hour is optional. not implemented as it defaults to 00.
-    cmd = ["python",os.path.join(repository_directory,scripts_directory,"ResReleaseGen.py"),start_date]
-    subprocess.call(cmd,shell=True)
-
-   
+       
 
     
 def calculate_distributed_data(config_file, snow, moist):
     """
-    run distribution models. moist.exe, snw.exe are always run, ragmet.exe, tmp.exe only if no capa/ no GEMtemps selected by
-    user in configuration file.
+    Run distribution models. moist.exe, snw.exe run if the arguments are set, ragmet.exe, tmp.exe only if no capa/ no GEMtemps selected by
+    user in configuration file. Executables must be run from the root of model directory.
     
-    executables must be run from the root of model directory.
+    Args:
+        config_file: see class ConfigParse
+        
+    Retunrs:
+        NULL - but runs distribution executables
     """
     print "Calculating Distributed Data"
     
@@ -870,8 +938,6 @@ def calculate_distributed_data(config_file, snow, moist):
                           config_file.data_distribution_moist)]   
       subprocess.call(cmd,shell=True)
     
-
-
     # reset directory to initial
     os.chdir(initial_directory)
 
@@ -879,8 +945,18 @@ def calculate_distributed_data(config_file, snow, moist):
 
 def update_model_folders(config_file):
     """
-    update model folders with files where appropriate. review comments below.
+    Move met and tem files from the temporary wxData folder to the radcl and tempr directories within the WATFLOOD folder structure
+    After the files have been moved, generate *_diff.r2c (required for modified Hargreaves evaporation (:flgevp2 = 4 in par file) 
+    files from the *_tem.r2c files using a custom Rscript.
+    
+    Args:
+        config_file: see class ConfigParse
+        
+    Returns:
+        NULL - but moves files to proper directories and generates *_dif.r2c files
     """
+    
+    #define function from http://stackoverflow.com/questions/1868714/how-do-i-copy-an-entire-directory-of-files-into-an-existing-directory-using-pyth
     def copytree(src, dst, symlinks=False, ignore=None):
       for item in os.listdir(src):
         s = os.path.join(src, item)
@@ -900,7 +976,6 @@ def update_model_folders(config_file):
     
     # copy temperature
     forecast_tem_directory = os.path.join(config_file.repository_directory, config_file.weather_data_directory,"tem")
-    print forecast_tem_directory
     current_file = os.listdir(forecast_tem_directory)[0]
     copytree(forecast_tem_directory,os.path.join(config_file.repository_directory,config_file.model_directory_path,"tempr"))
     
@@ -913,44 +988,25 @@ def update_model_folders(config_file):
 
     
 
-def execute_watflood(config_file,calibration_directory):
+def execute_watflood(config_file, hydensemble_directory):
     """
-    execute watflood model, current directory must be model directory.
+    Execute watflood model, current directory must be model directory.
+    
+    Args:
+        config_file: see class ConfigParse
+        hydensemble_directory: the hydrological ensemble directory
+        
+    Returns:
+        NULL - but executes WATFLOOD
     """
 
     # must change to root of model directory
-    os.chdir(os.path.join(calibration_directory,"wpegr"))  
-    # print calibration_directory
-
+    os.chdir(os.path.join(hydensemble_directory, config_file.model_directory))  
     
     cmd = [os.path.join(config_file.repository_directory,config_file.bin_directory,config_file.watflood_executable)]
     subprocess.call(cmd,shell=True)
 
     
-
-
-def generate_spinup_releases_file(start_date,end_date,repository_directory,scripts_directory):
-        """
-        creates 2 release files based on template.
-        """
-                
-        # --hour is optional. not implemented as it defaults to 00.
-        cmd = ["python",os.path.join(repository_directory,scripts_directory,"ResReleaseGen.py"),start_date]
-        subprocess.call(cmd,shell=True)
-        
-        # creates second year release file with correct date of YYYY0101
-        tmp_yyyy = end_date.split("/")[0]
-        start_date = "%s/%s/%s" %(tmp_yyyy,"01","01")
-        
-        # --hour is optional. not implemented as it defaults to 00.
-        cmd = ["python",os.path.join(repository_directory,scripts_directory,"ResReleaseGen.py"),start_date]
-        subprocess.call(cmd,shell=True)
-
-
- 
-
-    
-
     
 def spinup_capa(config_file,spinup_start_date,spinup_end_date):
     """
@@ -1020,16 +1076,16 @@ def copy_resume(config_file,source_dir,member_path="NA"): #source dir is the nam
     make_items = []
     
     for i in resume_files:
-      del_path = os.path.join(member_path,"Repo","wpegr",i)
+      del_path = os.path.join(config_file.model_directory_path,i)
       del_items.append(del_path)
       
-      make_path = os.path.join(member_path,source_dir,"wpegr",i)
+      make_path = os.path.join(member_path, source_dir, config_file.model_directory, i)
       make_items.append(make_path)
         
     # delete \wpegr\level\20140101_ill.pt2 in dest directory if exists
     tmp = config_file.historical_start_date.split("/")
     ill_file = "%s%s%s" %(tmp[0],tmp[1],tmp[2]) + "_ill.pt2"
-    ill_path = os.path.join(source_dir,"wpegr","level",ill_file)
+    ill_path = os.path.join(source_dir, config_file.model_directory, "level", ill_file)
     del_items.append(ill_path)
     
     for d in del_items: 
@@ -1077,7 +1133,10 @@ def UpdateConfig(config_file):
     
 
 class ConfigParse:
-    ''' object to define all parameters in the configuration.txt file'''
+    """
+    object to define all parameters in the configuration.txt file
+    """
+    
     def __init__(self,configurationtext):
     
         ## read configuration text file

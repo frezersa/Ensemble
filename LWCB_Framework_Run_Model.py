@@ -8,11 +8,12 @@ the script.
 -c 'full path to the configuration file'
 -m 'Type of model run: Spinup,DefaultHindcast,HindcastAdjust,Forecast'
 
-Functions are defined in the FrameworkLibrary.py file
+Functions are defined in the custom modules located in same folder (FrameworkLibrary.py,
+met_process.py, post_process.py, pre_process.py, pyEnSim_basics.py)
 
 """
 
-
+#import standard modules
 import datetime
 import os
 import subprocess
@@ -24,14 +25,17 @@ import argparse
 import re
 import urllib2
 import multiprocessing
+
 # NRC pyEnSim. must be installed prior to use.
 import pyEnSim.pyEnSim as pyEnSim
 
+#import custom modules
 from FrameworkLibrary import *
 import post_process
 
 
 def main():
+    #get arguments
     class args(object):
       pass
 
@@ -53,15 +57,15 @@ def main():
         
     ## ===== run operational framework
 
-    #= spin up 
+    # if Update Configuration File (specifically the hindcast and forecast dates)
     if model_run == "UpdateConfig":
         print "\n===============Updating Configuration File with Today's dates===================\n"
         UpdateConfig(config_file)
         
         
-        
+    #= spin up 
     elif model_run == "Spinup":
-        print "\n===============creating spin up===================\n"
+        print "\n===============Running Spin-up===================\n"
         
         # Prepare Directories
         clean_up(config_file.repository_directory)
@@ -82,8 +86,8 @@ def main():
                             config_file.spinup_start_date,
                             config_file.spinup_end_date)
         calculate_distributed_data(config_file,
-                                   snow="False",
-                                   moist="False")
+                                   snow = False,
+                                   moist = False)
         
         for i in members:
           setup_members(config_file,i)
@@ -101,9 +105,9 @@ def main():
 
 
 
-    # using previous spin up for default forecast
+    # hindcast
     elif model_run == "DefaultHindcast":
-        print "\nusing previously run spin up & running default hindcast\n"
+        print "\n===============Running Hindcast===================\n"
         
         #Prepare Directories
         clean_up(config_file.repository_directory)
@@ -113,13 +117,14 @@ def main():
                       end_date = config_file.historical_end_date)
         met_process.query_ec_datamart_hindcast(config_file)
         
-        #generate the event file, this may need to be executed again after the distribute data programs are run,
-        #not required in current setup
+        #generate the event file
         generate_hindcast_event_file(config_file,
                                      start_date = config_file.historical_start_date,
                                      resume_toggle = True, 
                                      tbc_toggle = True)
-                                     
+        
+        #Run WATFLOOD programs (ragmet, etc) to distribute point data
+        #if CaPA and GEMtemps are being used, no distributed data is calculated
         calculate_distributed_data(config_file,
                                    snow = False,
                                    moist = False)
@@ -134,17 +139,17 @@ def main():
         # execute watflood and plot hydrographs
         input = [[config_file,config_file.repository_directory,"False"]] #MotherShip input
         for j,member in enumerate(members): #member input
-          member_repository = os.path.join(os.path.dirname(os.path.dirname(config_file.repository_directory)), member,"Repo")
-          input.append([config_file,member_repository,"False"])
+          member_repository = os.path.join(os.path.dirname(os.path.dirname(config_file.repository_directory)), member, "Repo")
+          input.append([config_file, member_repository, "False"])
           
         pool = multiprocessing.Pool(processes = len(members) + 1)
         pool.map(execute_and_plot_hindcast,input)
 
                                    
                                   
-
+    # Forecast
     elif model_run == "Forecast":
-        print "Running Forecast\n"
+        print "\n===============Running Forecast===================\n"
         
         # Prepare Directories
         clean_up(config_file.repository_directory, met = True,tem = True)
@@ -165,10 +170,10 @@ def main():
         post_process.generate_meteorlogical_graphs(config_file) #only for MotherShip
         
         #execute parallel program to generate diagnostics
-        input = [[config_file,config_file.repository_directory]] #MotherShip input
+        input = [[config_file, config_file.repository_directory, "True"]] #MotherShip input
         for j,member in enumerate(members): #member input
-          member_repository = os.path.join(os.path.dirname(os.path.dirname(config_file.repository_directory)), member,"Repo")
-          input.append([config_file,member_repository])
+          member_repository = os.path.join(os.path.dirname(os.path.dirname(config_file.repository_directory)), member, "Repo")
+          input.append([config_file, member_repository, "True"])
           
         pool = multiprocessing.Pool(processes = len(members) + 1)
         pool.map(analyze_and_plot_forecast,input)
