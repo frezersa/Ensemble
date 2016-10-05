@@ -39,7 +39,7 @@ def repo_pull_nomads(repos, filePath, timestamp, repo_path):
    8:Type               NOMAD_GFS                                                                        
    9:Forecast           3
    10:num_ensembles     20   
-:EndSourceData
+   :EndSourceData
 
     """
     #build repository directory to store the date's files
@@ -712,7 +712,7 @@ def MetUpdate(config_file, r2c_target_path, type, RepoPath, r2c_template_path):
             #convert and append grib file
             pyEnSim_basics.grib_fastappend_r2c(grib_path = current_gribpath, 
                                 template_r2c_object = template_r2c_object, 
-                                r2cTargetFileName = r2c_target_path, 
+                                r2cTargetFilePath = r2c_target_path, 
                                 frameindex = current_index, 
                                 frametime = current_time, 
                                 convert_mult = False, convert_add = False, ensemble = False)
@@ -755,7 +755,7 @@ def MetUpdate(config_file, r2c_target_path, type, RepoPath, r2c_template_path):
             #convert and append grib file
             pyEnSim_basics.grib_fastappend_r2c(grib_path = grib_path, 
                                 template_r2c_object = template_r2c_object, 
-                                r2cTargetFileName = r2c_target_path, 
+                                r2cTargetFilePath = r2c_target_path, 
                                 frameindex = current_index, 
                                 frametime = current_time, 
                                 convert_mult = False, convert_add = -273.15, ensemble = False)

@@ -68,7 +68,7 @@ def main():
         print "\n===============Running Spin-up===================\n"
         
         # Prepare Directories
-        clean_up(config_file.repository_directory)
+        clean_up(config_file)
         generate_spinup_event_files(config_file,
                                     config_file.spinup_start_date, 
                                     config_file.spinup_end_date)
@@ -110,7 +110,7 @@ def main():
         print "\n===============Running Hindcast===================\n"
         
         #Prepare Directories
-        clean_up(config_file.repository_directory)
+        clean_up(config_file)
         copy_resume(config_file, "Repo_spinup")
         query_lwcb_db(config_file,
                       start_date = config_file.historical_start_date,
@@ -152,7 +152,7 @@ def main():
         print "\n===============Running Forecast===================\n"
         
         # Prepare Directories
-        clean_up(config_file.repository_directory, met = True,tem = True)
+        clean_up(config_file, met = True,tem = True)
         copy_resume(config_file,"Repo_hindcast")
         generate_forecast_files(config_file)
         met_process.query_ec_datamart_forecast(config_file)

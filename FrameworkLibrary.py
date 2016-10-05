@@ -1,6 +1,6 @@
-'''
+"""
 Library of functions that are called by LWCB_Framework_Run_Model.py
-'''
+"""
 
 #import standard modules
 import datetime
@@ -1010,9 +1010,15 @@ def execute_watflood(config_file, hydensemble_directory):
     
 def spinup_capa(config_file,spinup_start_date,spinup_end_date):
     """
-    utilize historical capa data in model spinup.
+    Copy CaPA r2c files from the CaPA repository into the WATFLOOD radcl folder
     
-    historical capa data is expected to be in r2c format. file signature must be YYYYMMDD_met.r2c.
+    Args:
+        config_file: see class ConfigParse
+        spinup_start_date: start date string in format "YYYY/MM/DD"
+        spinup_end_date: end date string in format "YYYY/MM/DD"
+        
+    Returns:
+        NULL - copies files
     """
     
     print "Copying CaPA Files to Spin-up Directory"
@@ -1035,9 +1041,15 @@ def spinup_capa(config_file,spinup_start_date,spinup_end_date):
     
 def spinup_GEMTemps(config_file, spinup_start_date, spinup_end_date):
     """
-    utilize historical capa data in model spinup.
+    Copy GEMTemps r2c files from the GEMTemps repository into the WATFLOOD radcl folder
     
-    historical capa data is expected to be in r2c format. file signature must be YYYYMMDD_tem.r2c.
+    Args:
+        config_file: see class ConfigParse
+        spinup_start_date: start date string in format "YYYY/MM/DD"
+        spinup_end_date: end date string in format "YYYY/MM/DD"
+        
+    Returns:
+        NULL - copies files
     """
     
     print "Copying GEMTemps Files to Spin-up Directory"
@@ -1063,10 +1075,24 @@ def spinup_GEMTemps(config_file, spinup_start_date, spinup_end_date):
 
 
 
-def copy_resume(config_file,source_dir,member_path="NA"): #source dir is the name of the folder where the results come from (ex. Model_Repository_Spinup)
+def copy_resume(config_file, source_dir, member_path = "NA"):
+    """
+    Copy the resume files (flow_init.r2c, soil_init.r2c, resume.txt, lake_level_init.pt2) from a previously run
+    simulation into the working directory (ie. the Repo/WATFLOOD directory)
+    
+    Args:
+        config_file: see class ConfigParse
+        source_dir: the previously run simulation - 'Repo_spinup' or 'Repo_hindcast'
+        member_path: path to hydrological ensemble directory if applicable
+     
+    Returns:
+        NULL - copies required files
+    """
+
     #get full path of source directories
     print "Copying resume files from " + source_dir + "...." + "\n"
     
+    #if no hydrologlical ensemble then use the standard 'mothership'
     if member_path == "NA":
       member_path = os.path.dirname(config_file.repository_directory)
     
@@ -1076,7 +1102,7 @@ def copy_resume(config_file,source_dir,member_path="NA"): #source dir is the nam
     make_items = []
     
     for i in resume_files:
-      del_path = os.path.join(config_file.model_directory_path,i)
+      del_path = os.path.join(member_path, "Repo", config_file.model_directory,i)
       del_items.append(del_path)
       
       make_path = os.path.join(member_path, source_dir, config_file.model_directory, i)
@@ -1098,11 +1124,18 @@ def copy_resume(config_file,source_dir,member_path="NA"): #source dir is the nam
 
     print "\n"
     
+    
 
 def UpdateConfig(config_file):
     """
     Script to make automatic changes to 'configuration.txt'
     Namely, changes the historical_end_date and the forecast_date to yesterday and today, respectively
+    
+    Args:
+        config_file: see class ConfigParse
+     
+    Returns:
+        NULL - updates config file with current dates
     """
 
     #first define a search and replace function
