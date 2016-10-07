@@ -885,6 +885,8 @@ def generate_forecast_files(config_file):
     generate_forecast_releases_file(config_file)
     generate_forecast_inflows_file(config_file)
     generate_forecast_diversions_file(config_file)
+    
+    print "\n"
 
        
 

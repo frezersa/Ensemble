@@ -1,3 +1,11 @@
+"""
+Module to pre process meterological data from the:
+    EC datamart - https://weather.gc.ca/grib/index_e.html
+    NOMADS - http://nomads.ncep.noaa.gov/cgi-bin/
+Relies heavily on the pyEnSim_basics module to convert grib files to r2c files
+"""
+
+#import standard modules
 import os
 import datetime
 import sys
@@ -7,13 +15,15 @@ import urllib2
 import re
 import shutil
 
+#import custom modules
 import FrameworkLibrary 
 import pyEnSim_basics
 import pyEnSim.pyEnSim as pyEnSim
+
  
 def repo_pull_nomads(repos, filePath, timestamp, repo_path):
     """
-    downloads forecast data from nomads repository using wget
+    downloads forecast data from NOMADS repository using wget
     
         Args:
         repos: the source data in a single source from the config file, see below for example
@@ -21,33 +31,34 @@ def repo_pull_nomads(repos, filePath, timestamp, repo_path):
         timestamp: datestamp + start hour, this is currently the config.file date with a static start hour of '00'
         repo_path: path to store all the repo data; currently 'config_file.grib_forecast_repo'
         
-    Website:
-    http://nomads.ncep.noaa.gov/txt_descriptions/CMCENS_doc.shtml
-    http://nomads.ncep.noaa.gov/cgi-bin/filter_cmcens.pl?file=cmc_gep00.t00z.pgrb2af384&lev_surface=on&var_APCP=on&var_TMP=on&subregion=&leftlon=-98&rightlon=-88&toplat=54&bottomlat=46&dir=%2Fcmce.20160830%2F00%2Fpgrb2a
-    http://nomads.ncep.noaa.gov/cgi-bin/filter_gens.pl?file=gec00.t00z.pgrb2anl&lev_2_m_above_ground=on&lev_surface=on&var_TMP=on&subregion=&leftlon=-98&rightlon=-88&toplat=54&bottomlat=46&dir=%2Fgefs.20160830%2F00%2Fpgrb2
-    
-    #Example repos from config file, note substitution parameters (%X) in :FileName
-   :SourceData  
-   0:URL                http://nomads.ncep.noaa.gov/cgi-bin/              
-   1:FileName           filter_%S1.pl?file=%S2gep%E.t%Hz.pgrb2af%T&%query&subregion=&leftlon=-98&rightlon=-88&toplat=54&bottomlat=46&dir=%2F%S3.%Y%m%d%2F00%2Fpgrb2a
-   2:DeltaTimeStart     6                                                                          
-   3:DeltaTimeEnd       240                                                                         
-   4:DeltaTimeStep      6                                                                          
-   5:StitchTimeStart    6                                                                          
-   6:StitchTimeEnd      240                                                                         
-   7:Grouping           tem                                                                        
-   8:Type               NOMAD_GFS                                                                        
-   9:Forecast           3
-   10:num_ensembles     20   
-   :EndSourceData
+            Website:
+            http://nomads.ncep.noaa.gov/txt_descriptions/CMCENS_doc.shtml
+            http://nomads.ncep.noaa.gov/cgi-bin/filter_cmcens.pl?file=cmc_gep00.t00z.pgrb2af384&lev_surface=on&var_APCP=on&var_TMP=on&subregion=&leftlon=-98&rightlon=-88&toplat=54&bottomlat=46&dir=%2Fcmce.20160830%2F00%2Fpgrb2a
+            http://nomads.ncep.noaa.gov/cgi-bin/filter_gens.pl?file=gec00.t00z.pgrb2anl&lev_2_m_above_ground=on&lev_surface=on&var_TMP=on&subregion=&leftlon=-98&rightlon=-88&toplat=54&bottomlat=46&dir=%2Fgefs.20160830%2F00%2Fpgrb2
+            
+            #Example repos from config file, note substitution parameters (%X) in :FileName
+           :SourceData  
+           0:URL                http://nomads.ncep.noaa.gov/cgi-bin/              
+           1:FileName           filter_%S1.pl?file=%S2gep%E.t%Hz.pgrb2af%T&%query&subregion=&leftlon=-98&rightlon=-88&toplat=54&bottomlat=46&dir=%2F%S3.%Y%m%d%2F00%2Fpgrb2a
+           2:DeltaTimeStart     6                                                                          
+           3:DeltaTimeEnd       240                                                                         
+           4:DeltaTimeStep      6                                                                          
+           5:StitchTimeStart    6                                                                          
+           6:StitchTimeEnd      240                                                                         
+           7:Grouping           tem                                                                        
+           8:Type               NOMAD_GFS                                                                        
+           9:Forecast           3
+           10:num_ensembles     20   
+           :EndSourceData
 
     """
+    
     #build repository directory to store the date's files
     today_repo_path = repo_path + "/" + timestamp + "/"
     FrameworkLibrary.build_dir(today_repo_path)
 
-
-
+    #get arguments from repos, we assume that 2 NOMADS sources won't be stitched together 
+    #(as we do with the datamart GEM regional and global model), hence only grab the first string (ie. repos[*][0])
     url = repos[0][0]
     DeltaTimeStart = int(repos[2][0])
     DeltaTimeEnd = int(repos[3][0])
@@ -105,7 +116,7 @@ def repo_pull_nomads(repos, filePath, timestamp, repo_path):
                   wget_list.append(cmd)
                   
     #now run wget with multiple threads, this speeds up download time considerably
-    print '\nDownloading Files...'
+    print '\nDownloading Files... \n'
     pool = multiprocessing.Pool(processes = 20)
     pool.map(os.system,wget_list)
 
@@ -140,11 +151,13 @@ def repo_pull_datamart(repos,filePath,timestamp,repo_path):
     today_repo_path = repo_path + "/" + timestamp + "/"
     FrameworkLibrary.build_dir(today_repo_path)
 
-    
+    #for each of the 'series' that are being stitched together (typically 1 or 2)
     for i, url in enumerate(repos[0]): 
       DeltaTimeStart = int(repos[2][i])
       DeltaTimeEnd = int(repos[3][i])
       DeltaTimeStep = int(repos[4][i])
+      
+      #loop through the time series
       for j in range(DeltaTimeStart/DeltaTimeStep,DeltaTimeEnd/DeltaTimeStep + 1):
         #set progress bar
         pbar = (j+1-DeltaTimeStart/DeltaTimeStep)/float((DeltaTimeEnd/DeltaTimeStep + 1)-DeltaTimeStart/DeltaTimeStep) * 40
@@ -159,7 +172,6 @@ def repo_pull_datamart(repos,filePath,timestamp,repo_path):
         name = repos[1][i].replace('%T', str(DeltaTime).zfill(3))
         
         filename = url + name
-        # print filename
         
         #run wget
         if not os.path.isfile(today_repo_path + name): #if file does not exist locally
@@ -176,29 +188,33 @@ def repo_pull_datamart(repos,filePath,timestamp,repo_path):
 
 
 
-
-
 def grib2r2c_datamart(repos, wx_repo, r2c_template, datestamp_object, grib_repo):
     """
-    repos: 
-    #Example repos from config file, note substitution parameters (%X) in :FileName
-    :SourceData  
-    0:URL                http://nomads.ncep.noaa.gov/cgi-bin/              
-    1:FileName           filter_%S1.pl?file=%S2gep%E.t%Hz.pgrb2af%T&%query&subregion=&leftlon=-98&rightlon=-88&toplat=54&bottomlat=46&dir=%2F%S3.%Y%m%d%2F00%2Fpgrb2a
-    2:DeltaTimeStart     6                                                                          
-    3:DeltaTimeEnd       240                                                                         
-    4:DeltaTimeStep      6                                                                          
-    5:StitchTimeStart    6                                                                          
-    6:StitchTimeEnd      240                                                                         
-    7:Grouping           tem                                                                        
-    8:Type               NOMAD_GFS                                                                        
-    9:Forecast           3
-    10:num_ensembles     20   
+    Function to process the EC datamart grib files (both deterministic and ensemble)
     
-    wx_repo: wxdata folder path
-    r2c_template: path to r2c template
-    datestamp_object: forecast date in the datetime class
-    grib_repo: repository where grib data is downloaded and stored
+    Args:
+        repos: 
+            #Example repos from config file, note substitution parameters (%X) in :FileName
+            :SourceData  
+            0:URL                http://nomads.ncep.noaa.gov/cgi-bin/              
+            1:FileName           filter_%S1.pl?file=%S2gep%E.t%Hz.pgrb2af%T&%query&subregion=&leftlon=-98&rightlon=-88&toplat=54&bottomlat=46&dir=%2F%S3.%Y%m%d%2F00%2Fpgrb2a
+            2:DeltaTimeStart     6                                                                          
+            3:DeltaTimeEnd       240                                                                         
+            4:DeltaTimeStep      6                                                                          
+            5:StitchTimeStart    6                                                                          
+            6:StitchTimeEnd      240                                                                         
+            7:Grouping           tem                                                                        
+            8:Type               NOMAD_GFS                                                                        
+            9:Forecast           3
+            10:num_ensembles     20   
+        
+        wx_repo: wxdata folder path
+        r2c_template: path to r2c template
+        datestamp_object: forecast date in the datetime class
+        grib_repo: repository where grib data is downloaded and stored
+        
+    Returns:
+        NULL - but creates r2c files from grib files
     """
 
     #get initial info from repos
@@ -211,39 +227,55 @@ def grib2r2c_datamart(repos, wx_repo, r2c_template, datestamp_object, grib_repo)
     DeltaTimeEnd = int(repos[3][0])
     Forecast = int(repos[9][0])
     
-    
-    
+    #set folder paths
     today_grib_repo = os.path.join(grib_repo,datestamp_object.strftime("%Y%m%d%H"))
     r2c_dest_folder = os.path.join(wx_repo, Grouping)
     
+    #Set the number of r2c files to produce based on user defined 'num_ensembles' arg from repos
+    #note that EC datamart structure has the ensembles embedded as multiple 'children' in each grib file
+    #the processing of these 'children' is done within the pyEnSim_basics.grib_save_r2c and 
+    #pyEnSim_basics.grib_fastappend_r2c functions
     frame_index = 0
     if num_ensembles > 1:
         ensemble = num_ensembles
     else:
         ensemble = False
         
+    #for each of the 'series' that are being stitched together (typically 1 or 2)
     for i in range(0,Stitches):
+
+    
         StitchTimeStart = int(repos[5][i])
         StitchTimeEnd = int(repos[6][i])
         DeltaTimeStep = int(repos[4][i])
+        
+        print "Converting Hours: " + str(StitchTimeStart) + " to " + str(StitchTimeEnd)
         #loop through each timestep
         for j in range(StitchTimeStart/DeltaTimeStep,StitchTimeEnd/DeltaTimeStep+1):
+            
+            pbar = j/float(StitchTimeEnd/DeltaTimeStep) * 40
+            sys.stdout.write('\r')
+            # the exact output you're looking for:
+            sys.stdout.write("[%-40s] %d%%" % ('='*int(pbar), pbar/40*100))
+            sys.stdout.flush() 
+        
             frame_index = frame_index + 1
             
+            #set deltatime so that frame timestamp can be properly labelled
             if j == 1:
                 DeltaTime = StitchTimeStart
             else:
                 DeltaTime = DeltaTime + DeltaTimeStep
-            print DeltaTime
 
+            #end loop if we've reached the end
             if DeltaTime > StitchTimeEnd:
                 break
 
             #get first file and convert to r2c
-            name = repos[1][i].replace('%T', str(DeltaTime).zfill(3)) #%Y%m%d%H have already been replaced in query_ec_datamart_forecast()
+            name = repos[1][i].replace('%T', str(DeltaTime).zfill(3)) #%Y%m%d%H have already been replaced in query_meteorological_forecast()
             grib_filepath = os.path.join(today_grib_repo,name)
 
-            oldname = repos[1][i].replace('%T', str(DeltaTime-DeltaTimeStep).zfill(3)) #%Y%m%d%H have already been replaced in query_ec_datamart_forecast()
+            oldname = repos[1][i].replace('%T', str(DeltaTime-DeltaTimeStep).zfill(3)) #%Y%m%d%H have already been replaced in query_meteorological_forecast()
             oldgrib_filepath = os.path.join(today_grib_repo,oldname)
 
             
@@ -254,60 +286,55 @@ def grib2r2c_datamart(repos, wx_repo, r2c_template, datestamp_object, grib_repo)
             r2c_template_object = pyEnSim_basics.load_r2c_template(r2c_template)
             frame_time = datestamp_object + datetime.timedelta(hours=int(DeltaTime))
             
+            
             if Grouping == "tem":
                 if j == 1:
-                    # print grib_filepath
+                    #if this is the first pass, create the r2c file(s)
                     pyEnSim_basics.grib_save_r2c(grib_filepath, r2c_template, r2c_dest_filepath, timestamp = datestamp_object, convert_add = -273.15, ensemble = ensemble)
                 else:
-                    pass
-                    # print grib_filepath
+                    #append grib data to existing r2c file(s) on all other passes
                     pyEnSim_basics.grib_fastappend_r2c(grib_filepath, r2c_template_object, r2c_dest_filepath, frame_index, frame_time, convert_add = -273.15, ensemble = ensemble)
                     
-                    
+
             if Grouping == "met":
                 if j == 1:
-                    # print grib_filepath
                     pyEnSim_basics.grib_save_r2c(grib_filepath, r2c_template, r2c_dest_filepath, timestamp = datestamp_object, ensemble = ensemble)
                 else:
-                    # print "first raster" + grib_filepath
-                    # print "previous raster" + oldgrib_filepath
-                    # print "\n"
                     pyEnSim_basics.grib_fastappend_r2c(grib_filepath, r2c_template_object, r2c_dest_filepath, frame_index, frame_time, grib_previous = oldgrib_filepath, ensemble = ensemble)
-            
 
-                    
-            #if Type == "ENSEMBLE": #ie. deterministic
-                #if grouping = tem:
-                    #get first file and convert to 20 r2cs
-                    #get next files and append to 20 r2cs
-                #if grouping = met:
-                    #get first file and convert to 20 r2cs
-                    #get next files, perform substraction, and append to 20 r2cs
-                
-
-            
-
+        print "\n"
           
 
 
 def grib_to_r2c_nomads(repos, r2c_repo, r2c_template, datestamp_object, grib_repo):
     """
     Function to convert the files that have been downloaded via the repo_pull_nomads function
+    Note that the ensemble files are handled differently than the EC datamart ensemble files.
+    NOMADS stores 1 single ensemble in 1 single grib file. There are no 'children' as in the datamart.
     
-    
-   #Example repos from config file, note substitution parameters (%X) in :FileName
-   :SourceData  
-   0:URL                http://nomads.ncep.noaa.gov/cgi-bin/              
-   1:FileName           filter_%S1.pl?file=%S2gep%E.t%Hz.pgrb2af%T&%query&subregion=&leftlon=-98&rightlon=-88&toplat=54&bottomlat=46&dir=%2F%S3.%Y%m%d%2F00%2Fpgrb2a
-   2:DeltaTimeStart     6                                                                          
-   3:DeltaTimeEnd       240                                                                         
-   4:DeltaTimeStep      6                                                                          
-   5:StitchTimeStart    6                                                                          
-   6:StitchTimeEnd      240                                                                         
-   7:Grouping           tem                                                                        
-   8:Type               NOMAD_GFS                                                                        
-   9:Forecast           3
-   10:num_ensembles     20   
+    Args:
+        repos:
+           #Example repos from config file, note substitution parameters (%X) in :FileName
+           :SourceData  
+           0:URL                http://nomads.ncep.noaa.gov/cgi-bin/              
+           1:FileName           filter_%S1.pl?file=%S2gep%E.t%Hz.pgrb2af%T&%query&subregion=&leftlon=-98&rightlon=-88&toplat=54&bottomlat=46&dir=%2F%S3.%Y%m%d%2F00%2Fpgrb2a
+           2:DeltaTimeStart     6                                                                          
+           3:DeltaTimeEnd       240                                                                         
+           4:DeltaTimeStep      6                                                                          
+           5:StitchTimeStart    6                                                                          
+           6:StitchTimeEnd      240                                                                         
+           7:Grouping           tem                                                                        
+           8:Type               NOMAD_GFS                                                                        
+           9:Forecast           3
+           10:num_ensembles     20   
+       
+        wx_repo: wxdata folder path
+        r2c_template: path to r2c template
+        datestamp_object: forecast date in the datetime class
+        grib_repo: repository where grib data is downloaded and stored
+        
+    Returns:
+        NULL - but converts grib files to r2c
     """
 
     #get information for source file
@@ -323,31 +350,29 @@ def grib_to_r2c_nomads(repos, r2c_repo, r2c_template, datestamp_object, grib_rep
     today_grib_repo = grib_repo + "/" + datestamp_object.strftime("%Y%m%d%H") + "/"
     r2c_dest_folder = os.path.join(r2c_repo, Grouping)
     
+    r2c_template_object = pyEnSim_basics.load_r2c_template(r2c_template)
+    
 
-    #for temperature and precipitation
-        #for CMC and GFS
-        
+    print "Converting Hours: " + str(DeltaTimeStart) + " to " + str(DeltaTimeEnd)
     #for each ensemble member (1-20)
     for i in range(1,num_ensembles+1):
-        # print i
         pbar = i/float(num_ensembles) * 40
         sys.stdout.write('\r')
         # the exact output you're looking for:
         sys.stdout.write("[%-40s] %d%%" % ('='*int(pbar), pbar/40*100))
         sys.stdout.flush()
 
+        #for each timestep
         for j in range(DeltaTimeStart/DeltaTimeStep,DeltaTimeEnd/DeltaTimeStep + 1):
-            # print j
       
             #get file to convert
             DeltaTime = j * DeltaTimeStep
+            TimeStamp = datestamp_object + datetime.timedelta(hours = (DeltaTime-DeltaTimeStep))
             grib_filepath = today_grib_repo + Type + '_' + Grouping + '_' + "%02d" % i + '_' + "%03d" % DeltaTime + '_' + datestamp_object.strftime("%Y%m%d%H") + '.grib2'
 
-            
             #get r2c destination filename
             r2c_dest_filename = datestamp_object.strftime("%Y%m%d") + '_' + Grouping + '_' + "%02d" % Forecast + '-' + "%02d" % i + '.r2c'
             r2c_dest_filepath = os.path.join(r2c_dest_folder,r2c_dest_filename)
-            print r2c_dest_filepath
 
 
             #get first file and convert to r2c
@@ -356,16 +381,17 @@ def grib_to_r2c_nomads(repos, r2c_repo, r2c_template, datestamp_object, grib_rep
                     pyEnSim_basics.grib_save_r2c(grib_filepath, r2c_template, r2c_dest_filepath, timestamp = datestamp_object, convert_add = -273.15)
                 if Grouping == 'met':
                     pyEnSim_basics.grib_save_r2c(grib_filepath, r2c_template, r2c_dest_filepath, timestamp = datestamp_object, convert_mult = False)
+                    
             else: #for all grib files after the first file, append to existing r2c file
                 if Grouping == 'tem':
-                    pyEnSim_basics.grib_append_r2c(grib_filepath, r2c_template, r2c_dest_filepath, DeltaTimeStep, convert_add = -273.15)
+                    pyEnSim_basics.grib_fastappend_r2c(grib_filepath, r2c_template_object, r2c_dest_filepath, frameindex = j, frametime = TimeStamp, convert_add = -273.15)
                 if Grouping == 'met':
-                    pyEnSim_basics.grib_append_r2c(grib_filepath, r2c_template, r2c_dest_filepath, DeltaTimeStep, convert_mult = False)
+                    pyEnSim_basics.grib_fastappend_r2c(grib_filepath, r2c_template_object, r2c_dest_filepath, frameindex = j, frametime = TimeStamp, convert_mult = False)
     print '\n'
 
 
         
-def query_ec_datamart_forecast(config_file):
+def query_meteorological_forecast(config_file):
     """
     query ec datamart to download and convert data. 
     The function looks at the ':SourceData' parameters to determine where to
@@ -373,8 +399,6 @@ def query_ec_datamart_forecast(config_file):
     """
     print "Getting forecast data..."
 
-    
-    
     #initialize time variables
     startHour = '00'
     datestamp_object = datetime.datetime.strptime(config_file.forecast_date, '%Y/%m/%d')
@@ -382,13 +406,10 @@ def query_ec_datamart_forecast(config_file):
     timestamp = datestamp_object.strftime("%Y%m%d%H")
     datestamp = datestamp_object.strftime("%Y%m%d")
 
-    
     #get path
     repo_path = config_file.repository_directory
     wx_path = os.path.join(repo_path,"wxData")
 
-
-    
     #Get the repository data from the config file
     getRepos = False
     repos_parent = []
@@ -412,8 +433,6 @@ def query_ec_datamart_forecast(config_file):
         repos.append(tokens)
     
     
-    
-
     # Replace special characters (not %T yet) with new values
     for k in range(len(repos_parent)): #for each source data section
       for i, line in enumerate(repos_parent[k]): #for each line in a section
@@ -428,14 +447,16 @@ def query_ec_datamart_forecast(config_file):
     #Download the forecast data to directory specified in the config file
     print "Downloading Data.... \n"
     for k in range(len(repos_parent)):
+    
       Type = repos_parent[k][8][0]
-      print Type
-      print "Downloading Forecast File(s): \n" + config_file.grib_forecast_repo + "\\" + str(timestamp)
+      Grouping = repos_parent[k][7][0]
+      print Type + " - " + Grouping
+      
       if "NOMAD" in Type:
         repo_pull_nomads(repos_parent[k], wx_path, timestamp, config_file.grib_forecast_repo)
       else:
         repo_pull_datamart(repos_parent[k], wx_path, timestamp, config_file.grib_forecast_repo)
-      print "\n"
+      
 
       
     #first check if folders exist, create if they don't
@@ -472,73 +493,21 @@ def query_ec_datamart_forecast(config_file):
       # convert to watflood r2c
       r2c_template = os.path.join(repo_path,config_file.lib_directory,"EmptyGridLL.r2c")
            
-      # print "Converting Data.... \n"
+      print "Converting Data.... \n"
       for k in range(len(repos_parent)): #for each 'source section'
+      
         Type = repos_parent[k][8][0]
-        print Type
-        print "Converting Forecast File(s): \n"
+        Grouping = repos_parent[k][7][0]
+        print Type + " - " + Grouping
+
         if "NOMAD" in Type:
             grib_to_r2c_nomads(repos_parent[k], wx_path, r2c_template, datestamp_object, config_file.grib_forecast_repo)
         else:
             grib2r2c_datamart(repos_parent[k], wx_path, r2c_template, datestamp_object, config_file.grib_forecast_repo)
-            #grib2r2c_datamart(repos,filePath,datestamp,startHour,repo_path)
 
-        
        
     
 
-def query_ec_datamart_hindcast(config_file):
-    """
-
-    """
-
-    
-    # capa data
-    # always pull capa data
-
-    # generate r2c from grib2
-    print "Getting Precipitation Data..."
-    hind_start_date = datetime.datetime.strptime(config_file.historical_start_date,"%Y/%m/%d")
-    print hind_start_date
-    capafilename = hind_start_date.strftime("%Y%m%d_met.r2c")
-    print capafilename
-    MetUpdate(config_file, 
-              r2c_target_path = os.path.join(config_file.historical_capa_path,capafilename), 
-              type = "CaPA", 
-              RepoPath = config_file.grib_capa_repo, 
-              r2c_template_path = os.path.join(config_file.repository_directory,config_file.lib_directory,"TEMPLATE_met.r2c"))
-              
-    #copy over to working directory          
-    origin = os.path.join(config_file.historical_capa_path,capafilename)
-    destination = os.path.join(config_file.model_directory_path,"radcl",capafilename)
-    shutil.copyfile(origin, destination)
-    
-    
-    
-        
-    # #GEM Temperature Data
-    print "Getting Temperature Data..."
-    hind_start_date = datetime.datetime.strptime(config_file.historical_start_date,"%Y/%m/%d")
-    GEMTempsfilename = hind_start_date.strftime("%Y%m%d_tem.r2c")
-    MetUpdate(config_file, 
-              r2c_target_path = os.path.join(config_file.historical_GEMTemps_path,GEMTempsfilename), 
-              type = "GEMTemps", 
-              RepoPath = config_file.grib_GEMTemps_repo, 
-              r2c_template_path = os.path.join(config_file.repository_directory,config_file.lib_directory,"TEMPLATE_tem.r2c"))
-              
-    #copy over to working directory          
-    origin = os.path.join(config_file.historical_GEMTemps_path, GEMTempsfilename)
-    destination = os.path.join(config_file.model_directory_path, "tempr", GEMTempsfilename)
-    shutil.copyfile(origin, destination)
-    
-    #create YYYYMMDD_dif.r2c file from temperature file
-    print "Calculating YYYYMMDD_dif.r2c file /n"
-    cmd = [config_file.rscript_path,
-          os.path.join(config_file.repository_directory,config_file.scripts_directory,config_file.r_script_tempdiff),
-          os.path.join(config_file.repository_directory,config_file.scripts_directory)]
-    subprocess.call(cmd,shell=True)
-    
-    
 def Download_Datamart_ReAnalysisHindcast(config_file,type,RepoPath):
     #Initialize some useful variables
     timeVar = FrameworkLibrary.getDateTime(hours = 0) #get today at time = 0
@@ -661,8 +630,6 @@ def Download_Datamart_GEMHindcast(config_file,type,RepoPath):
         lasttimestep = datetime.datetime.strptime(lasttimestring,"%Y%m%d%H") + datetime.timedelta(hours=forecast_hour)
 
 
-
-
     return lasttimestep, filename_nomenclature
     
     
@@ -762,3 +729,60 @@ def MetUpdate(config_file, r2c_target_path, type, RepoPath, r2c_template_path):
         
 
 
+def query_ec_datamart_hindcast(config_file):
+    """
+    Function to download temperature (GEM regional forecast) and precipitation (CaPA) grib
+    files from the EC datamart, then convert and append them to the existing hindcast r2c files.
+    
+    These files are updated with the latest data from the datamart, regardless of what time the forecast is set for
+    (ie. r2cs will still update if re-running a forecast from a week ago)
+    
+    Args: 
+        config_file: see class ConfigParse
+
+    """
+    #First do CaPA data
+    print "Getting Precipitation Data..."
+    hind_start_date = datetime.datetime.strptime(config_file.historical_start_date,"%Y/%m/%d")
+    capafilename = hind_start_date.strftime("%Y%m%d_met.r2c")
+    print capafilename
+    
+    MetUpdate(config_file, 
+              r2c_target_path = os.path.join(config_file.historical_capa_path,capafilename), 
+              type = "CaPA", 
+              RepoPath = config_file.grib_capa_repo, 
+              r2c_template_path = os.path.join(config_file.repository_directory,config_file.lib_directory,"TEMPLATE_met.r2c"))
+              
+    #copy over to working directory          
+    origin = os.path.join(config_file.historical_capa_path,capafilename)
+    destination = os.path.join(config_file.model_directory_path,"radcl",capafilename)
+    shutil.copyfile(origin, destination)
+    
+      
+      
+    #Next do GEM Temperature Data
+    print "Getting Temperature Data..."
+    hind_start_date = datetime.datetime.strptime(config_file.historical_start_date,"%Y/%m/%d")
+    GEMTempsfilename = hind_start_date.strftime("%Y%m%d_tem.r2c")
+    print GEMTempsfilename
+    
+    MetUpdate(config_file, 
+              r2c_target_path = os.path.join(config_file.historical_GEMTemps_path,GEMTempsfilename), 
+              type = "GEMTemps", 
+              RepoPath = config_file.grib_GEMTemps_repo, 
+              r2c_template_path = os.path.join(config_file.repository_directory,config_file.lib_directory,"TEMPLATE_tem.r2c"))
+              
+    #copy over to working directory          
+    origin = os.path.join(config_file.historical_GEMTemps_path, GEMTempsfilename)
+    destination = os.path.join(config_file.model_directory_path, "tempr", GEMTempsfilename)
+    shutil.copyfile(origin, destination)
+    
+    #create YYYYMMDD_dif.r2c file from temperature file
+    print "Calculating YYYYMMDD_dif.r2c file /n"
+    cmd = [config_file.rscript_path,
+          os.path.join(config_file.repository_directory,config_file.scripts_directory,config_file.r_script_tempdiff),
+          os.path.join(config_file.repository_directory,config_file.scripts_directory)]
+    subprocess.call(cmd,shell=True)
+    
+    
+    
