@@ -1,3 +1,9 @@
+"""
+Library of functions to post process the data.
+This mainly uses the subprocess module to call custom R scripts.
+"""
+
+#import standard libraries
 import os
 import datetime
 import sys
@@ -5,13 +11,17 @@ import subprocess
 import re
 
 
-
-    
-    
-    
-def generate_hydrographs(config_file,member_directory,use_forecast):
+ 
+def generate_hydrographs(config_file, member_directory, use_forecast):
     """
-    generates R daily graphics based on output of model resin & spl png files. output to /diagnostic folder
+    Generates R daily graphics based on output of model resin & spl png files. output to /diagnostic folder
+    
+    Args:
+        config_file: see class ConfigParse() in the FrameworkLibrary module
+        member_directory: string - the name of the hydrological ensemble directory
+        use_forecast: string - "True" or "False". If true it will plot the forecast after the hindcast.
+    Returns:
+        NULL - but calls R-script to plot reservoir and streamflow data
     """
     
     print "generating probablistic data"
@@ -30,7 +40,12 @@ def generate_hydrographs(config_file,member_directory,use_forecast):
 
 def generate_meteorlogical_graphs(config_file):
     """
-    generates R daily graphics based on output of model resin & spl png files. output to /diagnostic folder
+    Generates R daily graphics based on meteorological r2c files. output to /diagnostic folder
+    
+    Args:
+        config_file: see class ConfigParse() in the FrameworkLibrary module
+    Returns:
+        NULL - but calls R-script to plot meteorological maps
     """
     
 
@@ -61,6 +76,10 @@ def generate_meteorlogical_graphs(config_file):
     
       
 def generate_dss(hecdss_vue_path,r_script_directory,hec_writer_script):
+    """
+    Generates HEC-dss file, this function is not currently used.
+    """
+    
     inputfile = os.path.join(r_script_directory,"../diagnostic/Prob_forecast.csv")
     outputfile = os.path.join(r_script_directory,"../diagnostic/HECfile.dss")
     

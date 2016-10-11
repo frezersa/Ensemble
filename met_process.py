@@ -23,7 +23,7 @@ import pyEnSim.pyEnSim as pyEnSim
  
 def repo_pull_nomads(repos, filePath, timestamp, repo_path):
     """
-    downloads forecast data from NOMADS repository using wget
+    Downloads forecast data from NOMADS repository using wget
     
         Args:
         repos: the source data in a single source from the config file, see below for example
@@ -51,6 +51,8 @@ def repo_pull_nomads(repos, filePath, timestamp, repo_path):
            10:num_ensembles     20   
            :EndSourceData
 
+    Returns:
+        NULL - downloads grib files from online repository
     """
     
     #build repository directory to store the date's files
@@ -126,7 +128,8 @@ def repo_pull_nomads(repos, filePath, timestamp, repo_path):
     
 def repo_pull_datamart(repos,filePath,timestamp,repo_path):
     """
-    Downloads forecast data from online repository using wget
+    Downloads forecast data from EC datamart repository using wget
+    http://dd.weather.gc.ca/
     
     Args:
         repos: the source data in a single source from the config file, see below for example
@@ -145,6 +148,8 @@ def repo_pull_datamart(repos,filePath,timestamp,repo_path):
         [8]   :Type               GEM                                                                         GEM
         [9]   :Forecast           1                                                                           1
 
+    Returns:
+        NULL - downloads grib files from online repository
     """
 
     #build repository directory to store the date's files
@@ -393,9 +398,14 @@ def grib_to_r2c_nomads(repos, r2c_repo, r2c_template, datestamp_object, grib_rep
         
 def query_meteorological_forecast(config_file):
     """
-    query ec datamart to download and convert data. 
+    Query EC datamart and/or NOMADS to download and convert data. 
     The function looks at the ':SourceData' parameters to determine where to
     download the forecasts and how to convert them
+    
+    Args:
+        config_file: see class ConfigParse()
+    Returns:
+        NULL - but gets and processes meteorological forecast files
     """
     print "Getting forecast data..."
 
@@ -452,13 +462,14 @@ def query_meteorological_forecast(config_file):
       Grouping = repos_parent[k][7][0]
       print Type + " - " + Grouping
       
-      if "NOMAD" in Type:
+      if "NOMAD" in Type: #if NOMADS
         repo_pull_nomads(repos_parent[k], wx_path, timestamp, config_file.grib_forecast_repo)
-      else:
+      else: #else assume EC datamart
         repo_pull_datamart(repos_parent[k], wx_path, timestamp, config_file.grib_forecast_repo)
       
 
-      
+    # Now process the downloaded files into WATFLOOD format************************
+    
     #first check if folders exist, create if they don't
     if not os.path.exists(os.path.join(wx_path,"met")):
         os.mkdir(os.path.join(wx_path,"met"))
@@ -476,13 +487,13 @@ def query_meteorological_forecast(config_file):
     #check if files exist in folders and proceed accordingly
     need_to_convert_met = "True"
     for file in existing_metfiles:
-        if re.match(pattern, file):
+        if re.search(pattern, file):
           need_to_convert_met = "False"
           break
           
     need_to_convert_tem = "True"
     for file in existing_temfiles:
-        if re.match(pattern, file):
+        if re.search(pattern, file):
           need_to_convert_tem = "False"
           break
     
@@ -500,15 +511,28 @@ def query_meteorological_forecast(config_file):
         Grouping = repos_parent[k][7][0]
         print Type + " - " + Grouping
 
-        if "NOMAD" in Type:
+        if "NOMAD" in Type: #if in NOMADS format
             grib_to_r2c_nomads(repos_parent[k], wx_path, r2c_template, datestamp_object, config_file.grib_forecast_repo)
-        else:
+        else: #else assume in EC datamart format
             grib2r2c_datamart(repos_parent[k], wx_path, r2c_template, datestamp_object, config_file.grib_forecast_repo)
 
        
     
 
-def Download_Datamart_ReAnalysisHindcast(config_file,type,RepoPath):
+def Download_Datamart_ReAnalysisHindcast(config_file, type, RepoPath):
+    """
+    Downloads reanalysis data from the EC datamart, converts and appends it to existing data.
+    This is meant to update hindcast meteorological data up to the current date before the hindcast is run.
+    It is currently only used for CaPA data.
+    
+    Args:
+        config_file: see class ConfigParse()
+        type: string to determine type of ReAnalysis Data; currently CaPA is the only reanalysis that exists
+        RepoPath: directory where the reanalysis hindcast r2c file is stored and the reanalysis grib files are stored
+    Returns:
+        NULL - but downloads, converts and appends reanalysis data to r2c files
+    """
+    
     #Initialize some useful variables
     timeVar = FrameworkLibrary.getDateTime(hours = 0) #get today at time = 0
     timestamp = timeVar.strftime("%Y%m%d%H")
@@ -546,8 +570,7 @@ def Download_Datamart_ReAnalysisHindcast(config_file,type,RepoPath):
     #get the timestamp of the last file
     pattern = filename_nomenclature + "(\d+)(_\d+.grib2)"
 
-    
-    m = re.match(pattern,filelist[-1])
+    m = re.search(pattern,filelist[-1]) #only look at the last file in the list
     if m:
         lasttimestring = m.groups()[0]
         lasttimestep = datetime.datetime.strptime(lasttimestring,"%Y%m%d%H")
@@ -555,14 +578,25 @@ def Download_Datamart_ReAnalysisHindcast(config_file,type,RepoPath):
         suffix = m.groups()[1]
         grib_path_string = os.path.join(RepoPath,filename_nomenclature + "%Y%m%d%H" + suffix)
 
-
-    #datetime.datetime.strptime("%Y%m%d%H"
+    #return values if the pattern was found, this will give an error if the pattern doesn't match
+    #this error is intentional because the user must troubleshoot it if this occurs
     return lasttimestep, grib_path_string
     
     
     
-def Download_Datamart_GEMHindcast(config_file,type,RepoPath):
+def Download_Datamart_GEMHindcast(config_file, type, RepoPath):
     """
+    Downloads forecast data from the EC datamart, converts and appends it to existing data.
+    This is meant to update hindcast meteorological data up to the current date before the hindcast is run.
+    It is currently only used for temperature data. Currently the best way to get gridded temperature data
+    with good temporal resolution is to use the prior days' forecast.
+    
+    Args:
+        config_file: see class ConfigParse()
+        type: string to determine type of ReAnalysis Data; currently CaPA is the only reanalysis that exists
+        RepoPath: directory where the reanalysis hindcast r2c file is stored and the reanalysis grib files are stored
+    Returns:
+        NULL - but downloads, converts and appends reanalysis data to r2c files
     """
     
     #Initialize some useful variables
@@ -601,7 +635,6 @@ def Download_Datamart_GEMHindcast(config_file,type,RepoPath):
                 filename = filename_nomenclature + day + str(startperiod).zfill(2) +'_P' + str(starthour).zfill(3) + '.grib2'  
                 website = url + str(startperiod).zfill(2) + '/' + str(starthour).zfill(3) + '/' + filename
           
-          
                 if os.path.exists(os.path.join(RepoPath,filename)): #check if file already exists in local directory
                     lastfile = filename
 
@@ -618,18 +651,16 @@ def Download_Datamart_GEMHindcast(config_file,type,RepoPath):
 
     
     #get the timestamp of the last file
-    print lastfile
     pattern = filename_nomenclature + "(\d+)_P(\d+).grib2"
 
-    
-    m = re.match(pattern,lastfile)
+    m = re.search(pattern,lastfile)
     if m:
         lasttimestring = m.groups()[0]
         forecast_hour = int(m.groups()[1])
-        print forecast_hour
         lasttimestep = datetime.datetime.strptime(lasttimestring,"%Y%m%d%H") + datetime.timedelta(hours=forecast_hour)
 
-
+    #return values if the pattern was found, this will give an error if the pattern doesn't match
+    #this error is intentional because the user must troubleshoot it if this occurs
     return lasttimestep, filename_nomenclature
     
     
@@ -637,6 +668,15 @@ def Download_Datamart_GEMHindcast(config_file,type,RepoPath):
 def MetUpdate(config_file, r2c_target_path, type, RepoPath, r2c_template_path):
     """
     Function to update r2c files with either CaPA data or Temperature data from the EC datamart
+    
+    Args:
+        config_file: see class ConfigParse()
+        r2c_target_path: path to the r2c file that is being updated
+        type: string; currently either 'CaPA' or 'GEMTemps'
+        RepoPath: path to the directory where the downloaded grib files are stored
+        r2c_template_path: path to a r2c template that has the same format as the r2c_target_path, this is used because it is quicker to load
+    Returns:
+        NULL: 
     """
     
     if type == "CaPA":
@@ -650,8 +690,7 @@ def MetUpdate(config_file, r2c_target_path, type, RepoPath, r2c_template_path):
     if type == "GEMTemps":
         lastgribfiletime, grib_path_string = Download_Datamart_GEMHindcast(config_file,type,RepoPath)
 
-    
-    
+        
     #load capa template and get coordinate system
     template_r2c_object = pyEnSim_basics.load_r2c_template(r2c_template_path)
 
@@ -674,7 +713,6 @@ def MetUpdate(config_file, r2c_target_path, type, RepoPath, r2c_template_path):
             current_time = current_time + datetime.timedelta(hours = timestep)
             current_index = current_index + 1
             current_gribpath = current_time.strftime(grib_path_string)
-            #print current_gribpath
             
             #convert and append grib file
             pyEnSim_basics.grib_fastappend_r2c(grib_path = current_gribpath, 
@@ -683,7 +721,7 @@ def MetUpdate(config_file, r2c_target_path, type, RepoPath, r2c_template_path):
                                 frameindex = current_index, 
                                 frametime = current_time, 
                                 convert_mult = False, convert_add = False, ensemble = False)
-            print current_time
+
             
             
             
@@ -716,7 +754,6 @@ def MetUpdate(config_file, r2c_target_path, type, RepoPath, r2c_template_path):
         current_index = lastindexframe
         
         for i, grib_path in enumerate(griblist):
-            print grib_path
             current_index = current_index + 1
             current_time = current_time + datetime.timedelta(hours = timestep)
             #convert and append grib file
@@ -745,7 +782,7 @@ def query_ec_datamart_hindcast(config_file):
     print "Getting Precipitation Data..."
     hind_start_date = datetime.datetime.strptime(config_file.historical_start_date,"%Y/%m/%d")
     capafilename = hind_start_date.strftime("%Y%m%d_met.r2c")
-    print capafilename
+    
     
     MetUpdate(config_file, 
               r2c_target_path = os.path.join(config_file.historical_capa_path,capafilename), 
@@ -764,7 +801,6 @@ def query_ec_datamart_hindcast(config_file):
     print "Getting Temperature Data..."
     hind_start_date = datetime.datetime.strptime(config_file.historical_start_date,"%Y/%m/%d")
     GEMTempsfilename = hind_start_date.strftime("%Y%m%d_tem.r2c")
-    print GEMTempsfilename
     
     MetUpdate(config_file, 
               r2c_target_path = os.path.join(config_file.historical_GEMTemps_path,GEMTempsfilename), 

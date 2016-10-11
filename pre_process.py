@@ -1,3 +1,8 @@
+"""
+Library of functions to generate files that are required to run WATFLOOD
+"""
+
+#import standard modules
 import os
 import datetime
 import pprint
@@ -5,20 +10,40 @@ import math
 
 
 
-#returns a DateTime object from a string input (used to parse the command line argument)
-def buildDateTime (input):
-    return datetime.datetime.strptime(input, '%Y/%m/%d').date()
+
+def buildDateTime (Date):
+    """
+    returns a DateTime object from a string input (used to parse the command line argument)
+    
+    Args:
+        Date: string in format "YYYY/MM/DD"
+    Returns:
+        datetime object
+    """
+    
+    return datetime.datetime.strptime(Date, '%Y/%m/%d').date()
     
 
  
 #returns a Time object from a string input (used to parse the command line argument) 
 def buildTime (input):
+    """
+    returns a Time object from a string input (used to parse the command line argument) 
+    
+    Args:
+        Date: string in format "YYYY/MM/DD"
+    Returns:
+        time object
+    """
   return datetime.datetime.strptime(input + ":00:00", "%H:%M:%S").time()
+  
   
   
 def ResInflowGenerator(config_file, template_name, start_date, NumDays = 10):
     """
+    Generates a reservoir inflow file in the resrl directory
     
+    Args:
     """
     #initialize useful variables
     repo_path = config_file.repository_directory

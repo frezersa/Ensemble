@@ -74,6 +74,7 @@ def grib_save_r2c(grib_path, r2c_template_path, r2cTargetFilePath, timestamp = d
     #then set the number of ensembles, else default to 1
     if ensemble is not False:
         rasterCount = min(grib_object.GetChildrenCount(),ensemble)
+        raster_iteration = range(1,rasterCount+1) #this ensures the 1st child is ignored, as is done in NOMADS ensembles
         
         #also get the base name of the r2c file so that we can append an ensemble number to it
         regexp = re.compile("\d\d.r2c")
@@ -82,7 +83,7 @@ def grib_save_r2c(grib_path, r2c_template_path, r2cTargetFilePath, timestamp = d
         else:
             r2cTargetFilePathbase = re.split(".r2c",r2cTargetFilePath)[0] #if the pattern can't be found, then just remove the .r2c suffix  
     else:
-        rasterCount = 1
+        raster_iteration = range(0,1)
 
     
     #get the r2c object and its attributes
@@ -90,9 +91,9 @@ def grib_save_r2c(grib_path, r2c_template_path, r2cTargetFilePath, timestamp = d
     cs = r2c_object.GetCoordinateSystem()  
 
     
-    for i in range(0,rasterCount):   
+    for i in raster_iteration:   
         if ensemble is not False:   
-            r2cTargetFilePath = r2cTargetFilePathbase + "%02d" % (i+1) + ".r2c" #append ensemble num and suffix
+            r2cTargetFilePath = r2cTargetFilePathbase + "%02d" % (i) + ".r2c" #append ensemble num and suffix
         else:
             pass
             
@@ -160,15 +161,16 @@ def grib_fastappend_r2c(grib_path, template_r2c_object, r2cTargetFilePath, frame
     
     if ensemble is not False:
         rasterCount = min(grib_object.GetChildrenCount(),ensemble)
+        raster_iteration = range(1,rasterCount+1) #this ensures the 1st child is ignored, as is done in NOMADS ensembles
         
     else:
-        rasterCount = 1
+        raster_iteration = range(0,1)
     r2cTargetFilePathbase = re.split("\d\d.r2c",r2cTargetFilePath)[0] #remove the last digits and suffix from the file name, to be added later
         
-    for i in range(0,rasterCount):
+    for i in raster_iteration:
         #rename r2c file if ensemble, otherwise keep original name
         if ensemble is not False:
-            r2cTargetFilePath = r2cTargetFilePathbase + "%02d" % (i+1) + ".r2c"
+            r2cTargetFilePath = r2cTargetFilePathbase + "%02d" % (i) + ".r2c"
         else:
             pass
 
