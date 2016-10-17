@@ -80,7 +80,7 @@ def AcceptAndCopy(config_file):
             os.path.join(config_file.repository_directory, config_file.scripts_directory),
             write_directory]
     print cmd 
-    #subprocess.call(cmd)
+    subprocess.call(cmd)
 
     
     

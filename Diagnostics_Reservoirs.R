@@ -14,13 +14,13 @@ if(length(new.packages)) install.packages(new.packages,repos='http://cran.us.r-p
 #Get arguments
 args <- commandArgs(TRUE)
 cat(paste("1 - ",script_directory <- args[1]),"\n") #working directory
-# script_directory <- "Q:/WR_Ensemble_dev/A_MS/Repo/scripts"
+# script_directory <- "Q:/WR_Ens_dev/A_MS/Repo/scripts"
 
 cat(paste("2 - ",model_directory <- args[2]),"\n") #typically 'wpegr'
 # model_directory <- "wpegr"
 
 cat(paste("3 - ",Forecast <- args[3]),"\n") 
-# Forecast <- "False"
+# Forecast <- "True"
 
 
 #set working directory and load libraries
@@ -105,33 +105,23 @@ inflowplots <- function(percentileframe,resin_hind,LakeName,m,avg=FALSE){
 
 
 inflowdata <- function(percentileframe,resin_hind,LakeName,m){
-  Lookback<-min(14,nrow(resin_hind$observed.table))
-  
-  
-  #find bias for hindcast
   #create timeseries and apply 7-day averaging to minimize wind effects (end-averaging)
   tdf<-merge(Obs=zoo(resin_hind$observed.table[,m],resin_hind$date.time),Est=zoo(resin_hind$estimated.table[,m],resin_hind$date.time))
   
-  if(Lookback>14){
-    tdf.7day<-round(rollapply(tdf,FUN=mean,width=7,align="right"),1)
-    
-    #calculate bias (as per thesis from Dominique Bourdin, UBC 2013)
-    tdf.7daytail<-tail(tdf.7day,n=Lookback) #use last 14 days, this is somewhat aribitrary
-    bias<-(sum(tdf.7daytail$Est)-sum(tdf.7daytail$Obs))/Lookback
-    
-  }
-  
-  percentileframe.biascorr<-percentileframe
+  length_of_forecast <- ncol(percentileframe)
+
   
   #bind historical and forecast together in a single dataframe
-  Observed<-data.frame(t(tail(tdf$Obs,Lookback)))
-  index <- rep(seq_len(nrow(Observed)), each = 7)
-  Observed<-Observed[index, ]
+  Observed <- data.frame(t(tail(tdf$Obs,Lookback)))
+  Estimated <- data.frame(t(tail(tdf$Est,Lookback)))
+  index <- rep(seq_len(nrow(Estimated)), each = 7)
+  Estimated<-Estimated[index,]
   
-  functionoutput<-cbind(Observed,percentileframe.biascorr)
+  functionoutput<-rbind(cbind(Estimated,percentileframe),
+                        c(unlist(Observed),rep(NA,length_of_forecast)))
   datenames<-as.character(seq(Sys.Date()-Lookback,Sys.Date()+9,1))
   colnames(functionoutput)<-datenames
-  rownames(functionoutput)<-paste0(LakeName,rownames(percentileframe))
+  rownames(functionoutput)<-paste0(LakeName,c(rownames(percentileframe),"Obs"))
   
   return(functionoutput)
   
@@ -189,8 +179,11 @@ output<-data.frame()
 m=1
 for(m in 1:num_reservoirs){
   if(Forecast == "True" || Forecast == "TRUE" || Forecast == TRUE){
+    
     assign(paste0("p",m),inflowplots(percentileframe=MasterPerc[[m]],resin_hind=resin_hind,LakeName=LakeNames[m],m=m,avg=FALSE))
-    output<-rbind(output,inflowdata(MasterPerc[[m]],resin_hind,LakeName=LakeNames[m],m))
+    output<-rbind(output,inflowdata(percentileframe=MasterPerc[[m]],resin_hind=resin_hind,LakeName=LakeNames[m],m))
+
+    
   }else{ #else there is a forecast
     assign(paste0("p",m),inflowplots(percentileframe=FALSE,resin_hind=resin_hind,LakeName=LakeNames[m],m=m,avg=FALSE))
   }
