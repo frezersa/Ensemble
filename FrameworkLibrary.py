@@ -26,10 +26,248 @@ import post_process
 import pre_process
 
 
+def AcceptAndCopy(config_file):  
+    """
+    """
+
+    # configuration file extension. no dot.
+    configuration_extension = "txt"
+
+    #= set inital working directory to repository root folder
+    os.chdir(config_file.repository_directory)
+
+    # - create time stamped directory
+    write_directory,name_time = create_forecast_folder(config_file.output_directory,config_file.forecast_date)
+    
+    #get the names of all the hydrological ensemble members, including the main directory
+    ms_directory = os.path.dirname(config_file.repository_directory)
+    ms = os.path.basename(ms_directory)
+    main_directory = os.path.dirname(ms_directory)
+    ensemble_members = config_file.ensemble_members.split(',')
+    ensemble_members.append(ms)
+
+    #remove any whitespaces
+    ensemble_members = filter(None, ensemble_members)
+
+    #copy WATFLOOD forecast files
+    for i in ensemble_members:
+        dst_path = os.path.join(write_directory,i)
+        if not os.path.exists(dst_path):
+            os.mkdir(dst_path)
+            
+            #copy the raw forecast files
+            copytree(src = os.path.join(main_directory, i, "Repo_forecast", config_file.forecast_directory), dst = dst_path)
+            
+            #copy the diagnostic files, except the meteorolgical files which aren't necessary
+            copytree(src = os.path.join(main_directory, i, "Repo_forecast", config_file.diagnostic_directory), dst = dst_path, IgnorePattern = 'Met_')
+            
+            shutil.copyfile(os.path.join(main_directory,i,"Repo_hindcast",config_file.model_directory,"results","resin.csv"),
+                            os.path.join(dst_path,"resin_hindcast.csv"))
+            shutil.copyfile(os.path.join(main_directory,i,"Repo_hindcast",config_file.model_directory,"results","spl.csv"),
+                            os.path.join(dst_path,"spl_hindcast.csv"))
+
+    #copy meteorological plots from the mothership directory
+    list_of_files = os.listdir(os.path.join(config_file.repository_directory,config_file.diagnostic_directory))
+    met_files = [s for s in list_of_files if 'Met_' in s]
+    for i, name in enumerate(met_files):
+        shutil.copyfile(os.path.join(config_file.repository_directory,config_file.diagnostic_directory,name),
+                        os.path.join(write_directory,name))
+
+                        
+    #plot process key data
+    cmd = [config_file.rscript_path,
+            os.path.join(config_file.repository_directory, config_file.scripts_directory, config_file.r_script_diagnostics_hydensembles),
+            os.path.join(config_file.repository_directory, config_file.scripts_directory),
+            write_directory]
+    print cmd 
+    #subprocess.call(cmd)
+
+    
+    
+def copytree(src, dst, symlinks=False, IgnorePattern = False):
+    """
+    #define function from http://stackoverflow.com/questions/1868714/how-do-i-copy-an-entire-directory-of-files-into-an-existing-directory-using-pyth
+    """
+    if IgnorePattern is not False:
+        list_of_files = os.listdir(src)
+        list_of_copyfiles = [s for s in list_of_files if IgnorePattern not in s]
+    else:
+        list_of_copyfiles = os.listdir(src)
+        
+    for item in list_of_copyfiles:
+        s = os.path.join(src, item)
+        d = os.path.join(dst, item)
+        
+        if os.path.isdir(s):
+            shutil.copytree(s, d, symlinks, None)
+        else:
+            shutil.copy2(s, d)    
+
+def UpdateConfig(config_file):
+    """
+    Script to make automatic changes to 'configuration.txt'
+    Namely, changes the historical_end_date and the forecast_date to yesterday and today, respectively
+    
+    Args:
+        config_file: see class ConfigParse
+     
+    Returns:
+        NULL - updates config file with current dates
+    """
+
+    #first define a search and replace function
+    def replace(file_path, pattern, subst):
+        #Create temp file
+        fh, abs_path = tempfile.mkstemp()
+        new_file = open(abs_path,'w')
+        old_file = open(file_path)
+        for line in old_file:
+            #new_file.write(line.replace(pattern, subst))
+            new_file.write(re.sub(pattern, subst, line)) #http://stackoverflow.com/questions/16720541/python-string-replace-regular-expression?lq=1
+        #close temp file
+        new_file.close()
+        os.close(fh)
+        old_file.close()
+        #Remove original file
+        os.remove(file_path)
+        #Move new file
+        shutil.move(abs_path, file_path)
+        
+    #Get today's and yesterday's dates
+    today_date = datetime.datetime.today()
+    yesterday_date = today_date - datetime.timedelta(1)
+        
+    #replace dates in text file
+    replace(config_file.configuration_file,r'historical_end_date:.+','historical_end_date:' + yesterday_date.strftime('%Y/%m/%d'))
+    replace(config_file.configuration_file,r'forecast_date:.+','forecast_date:' + today_date.strftime('%Y/%m/%d'))    
     
 
     
-def clean_up(config_file, tem = True, met = True):
+def spin_up(config_file):
+    """
+    """
+    print "\n===============Running Spin-up===================\n"
+    members = filter(None,config_file.ensemble_members.split(",")) #find out which hydr. ensemble members to run
+    # Prepare Directories
+    clean_up(config_file)
+    generate_spinup_event_files(config_file,
+                                config_file.spinup_start_date, 
+                                config_file.spinup_end_date)
+    generate_spinup_generic_files(config_file,
+                                  config_file.spinup_start_date)
+    query_lwcb_db(config_file,
+                  config_file.spinup_start_date,
+                  config_file.spinup_end_date)
+    if config_file.use_capa == "True":
+        spinup_capa(config_file,
+                    config_file.spinup_start_date,
+                    config_file.spinup_end_date)
+    if config_file.use_GEMTemps == "True":
+        spinup_GEMTemps(config_file,
+                        config_file.spinup_start_date,
+                        config_file.spinup_end_date)
+    calculate_distributed_data(config_file,
+                               snow = False,
+                               moist = False)
+    
+    for i in members:
+      setup_members(config_file,i)
+      copy_memberevents(config_file,i)
+
+    # execute watflood
+    input = [[config_file,config_file.repository_directory,"False"]] #MotherShip input
+    for j,member in enumerate(members): #member input
+      member_repository = os.path.join(os.path.dirname(os.path.dirname(config_file.repository_directory)), member,"Repo")
+      input.append([config_file,member_repository,"False"])
+      
+    pool = multiprocessing.Pool(processes = len(members) + 1)
+    pool.map(execute_and_plot_spinup,input)
+
+
+def hindcast(config_file):
+    """
+    """
+    
+    print "\n===============Running Hindcast===================\n"
+    members = filter(None,config_file.ensemble_members.split(",")) #find out which hydr. ensemble members to run
+        
+    #Prepare Directories
+    clean_up(config_file)
+    copy_resume(config_file, "Repo_spinup")
+    query_lwcb_db(config_file,
+                  start_date = config_file.historical_start_date,
+                  end_date = config_file.historical_end_date)
+    met_process.query_ec_datamart_hindcast(config_file)
+    
+    #generate the event file
+    generate_hindcast_event_file(config_file,
+                                 start_date = config_file.historical_start_date,
+                                 resume_toggle = True, 
+                                 tbc_toggle = True)
+    
+    #Run WATFLOOD programs (ragmet, etc) to distribute point data
+    #if CaPA and GEMtemps are being used, no distributed data is calculated
+    calculate_distributed_data(config_file,
+                               snow = False,
+                               moist = False)
+
+                               
+    for i in members:
+      setup_members(config_file,i)
+      copy_memberevents(config_file,i)
+      member_path = os.path.join(os.path.dirname(os.path.dirname(config_file.repository_directory)), i)
+      copy_resume(config_file, "Repo_spinup", member_path=member_path)
+
+    # execute watflood and plot hydrographs
+    input = [[config_file,config_file.repository_directory,"False"]] #MotherShip input
+    for j,member in enumerate(members): #member input
+      member_repository = os.path.join(os.path.dirname(os.path.dirname(config_file.repository_directory)), member, "Repo")
+      input.append([config_file, member_repository, "False"])
+      
+    pool = multiprocessing.Pool(processes = len(members) + 1)
+    pool.map(execute_and_plot_hindcast,input)
+
+    
+    
+    
+def forecast(config_file):
+    """
+    """
+    
+    # print "\n===============Running Forecast===================\n"
+    members = filter(None,config_file.ensemble_members.split(",")) #find out which hydr. ensemble members to run
+        
+    # Prepare Directories
+    clean_up(config_file, met = True,tem = True)
+    copy_resume(config_file,"Repo_hindcast")
+    generate_forecast_files(config_file)
+    met_process.query_meteorological_forecast(config_file)
+    update_model_folders(config_file)
+    
+    for i in members:
+      setup_members(config_file,i)
+      member_path = os.path.join(os.path.dirname(os.path.dirname(config_file.repository_directory)), i)
+      copy_resume(config_file, "Repo_hindcast", member_path=member_path)
+      
+      
+    # execute watflood (this calls parallel processing for spl execution
+    generate_run_event_files_forecast(config_file,members)
+
+    post_process.generate_meteorlogical_graphs(config_file) #only for MotherShip
+    
+    #execute parallel program to generate diagnostics
+    input = [[config_file, config_file.repository_directory, "True"]] #MotherShip input
+    for j,member in enumerate(members): #member input
+      member_repository = os.path.join(os.path.dirname(os.path.dirname(config_file.repository_directory)), member, "Repo")
+      input.append([config_file, member_repository, "True"])
+      
+    pool = multiprocessing.Pool(processes = len(members) + 1)
+    pool.map(analyze_and_plot_forecast,input)
+    
+
+    
+    
+def clean_up(config_file, member_to_clean = False, tem = True, met = True):
     """
     Removes files from folders prior to execution of framework.
 
@@ -43,17 +281,25 @@ def clean_up(config_file, tem = True, met = True):
     """
     print "Cleaning up old files..."
     
+    if member_to_clean is not False:
+        parent_dir = os.path.dirname(os.path.dirname(config_file.repository_directory))
+        base_dir = os.path.join(parent_dir,member_to_clean,"Repo")
+        model_dir = os.path.join(base_dir,config_file.model_directory)
+    else:
+        base_dir = config_file.repository_directory
+        model_dir = config_file.model_directory_path
+        
 
     directories = ["diver","event","level","moist","radcl","raing","resrl","results","snow1","strfw","tempg","tempr"]
         
     # delete folders in model directory. removes all files.
     for i in directories:
-        if os.path.exists(os.path.join(config_file.model_directory_path,i)):
-          shutil.rmtree(os.path.join(config_file.model_directory_path,i))
+        if os.path.exists(os.path.join(model_dir,i)):
+          shutil.rmtree(os.path.join(model_dir,i))
           
     # create blank directories in model directory
     for i in directories:
-        os.mkdir(os.path.join(config_file.model_directory_path,i))
+        os.mkdir(os.path.join(model_dir,i))
     
     # remove forecast weather data r2c's
     # files from met/ & /tem dirs
@@ -70,13 +316,13 @@ def clean_up(config_file, tem = True, met = True):
           os.remove(i)
     
     # remove r generate analysis png's
-    path = os.path.join(config_file.repository_directory, config_file.r_graphics_directory,"*.*")
+    path = os.path.join(base_dir, config_file.diagnostic_directory,"*.*")
     files = glob.glob(path)
     for i in files:
         os.remove(i)
         
     # remove forecast files
-    path = os.path.join(config_file.repository_directory,config_file.forecast_directory,"*.*")
+    path = os.path.join(base_dir,config_file.forecast_directory,"*.*")
     files = glob.glob(path)
     for i in files:
         os.remove(i)
@@ -300,10 +546,10 @@ def setup_members(config_file,member):
     
     #clean up the member repository
     member_repository = os.path.join(os.path.dirname(os.path.dirname(config_file.repository_directory)), member, "Repo")
-    clean_up(member_repository)
+    clean_up(config_file,member)
         
     #copy the reservoir release files from the 'mothership' and modify the coefficients as required
-    CopyModResrl(os.path.join(config_file.repository_directory, model_directory, "resrl"),
+    CopyModResrl(os.path.join(config_file.repository_directory, config_file.model_directory, "resrl"),
                  os.path.join(member_repository, config_file.model_directory, "resrl"),
                  os.path.join(member_repository, config_file.lib_directory, "template_rel.tb0"))
 
@@ -325,7 +571,7 @@ def copy_memberevents(config_file,member):
     member_repository = os.path.join(os.path.dirname(os.path.dirname(config_file.repository_directory)), member,"Repo")
     
     CopyModEvent(os.path.join(config_file.model_directory_path,"event"),
-                 os.path.join(member_repository,model_directory,"event"),
+                 os.path.join(member_repository,config_file.model_directory,"event"),
                  "NA")
                  
                  
@@ -944,7 +1190,12 @@ def calculate_distributed_data(config_file, snow, moist):
     os.chdir(initial_directory)
 
     
+    
 
+
+
+            
+            
 def update_model_folders(config_file):
     """
     Move met and tem files from the temporary wxData folder to the radcl and tempr directories within the WATFLOOD folder structure
@@ -958,15 +1209,6 @@ def update_model_folders(config_file):
         NULL - but moves files to proper directories and generates *_dif.r2c files
     """
     
-    #define function from http://stackoverflow.com/questions/1868714/how-do-i-copy-an-entire-directory-of-files-into-an-existing-directory-using-pyth
-    def copytree(src, dst, symlinks=False, ignore=None):
-      for item in os.listdir(src):
-        s = os.path.join(src, item)
-        d = os.path.join(dst, item)
-        if os.path.isdir(s):
-            shutil.copytree(s, d, symlinks, ignore)
-        else:
-            shutil.copy2(s, d)
     
     #= move forecast generated r2c files into appropriate model folders. data is always generated. 
     # data currently created in wxData/met --> model_directory_path/radcl & wxData/tem --> model_directory_path/tempr
@@ -1128,44 +1370,7 @@ def copy_resume(config_file, source_dir, member_path = "NA"):
     
     
 
-def UpdateConfig(config_file):
-    """
-    Script to make automatic changes to 'configuration.txt'
-    Namely, changes the historical_end_date and the forecast_date to yesterday and today, respectively
-    
-    Args:
-        config_file: see class ConfigParse
-     
-    Returns:
-        NULL - updates config file with current dates
-    """
 
-    #first define a search and replace function
-    def replace(file_path, pattern, subst):
-        #Create temp file
-        fh, abs_path = tempfile.mkstemp()
-        new_file = open(abs_path,'w')
-        old_file = open(file_path)
-        for line in old_file:
-            #new_file.write(line.replace(pattern, subst))
-            new_file.write(re.sub(pattern, subst, line)) #http://stackoverflow.com/questions/16720541/python-string-replace-regular-expression?lq=1
-        #close temp file
-        new_file.close()
-        os.close(fh)
-        old_file.close()
-        #Remove original file
-        os.remove(file_path)
-        #Move new file
-        shutil.move(abs_path, file_path)
-        
-    #Get today's and yesterday's dates
-    today_date = datetime.datetime.today()
-    yesterday_date = today_date - datetime.timedelta(1)
-        
-    #replace dates in text file
-    replace(config_file.configuration_file,r'historical_end_date:.+','historical_end_date:' + yesterday_date.strftime('%Y/%m/%d'))
-    replace(config_file.configuration_file,r'forecast_date:.+','forecast_date:' + today_date.strftime('%Y/%m/%d'))    
-    
 
 class ConfigParse:
     """
@@ -1188,7 +1393,8 @@ class ConfigParse:
         self.lib_directory = parameter_settings["lib_directory"]
         self.forecast_directory = parameter_settings["forecast_directory"]
         self.scripts_directory = parameter_settings["scripts_directory"]
-        # watflood folder "wpegr"
+        self.output_directory = parameter_settings["output_directory"]
+        self.diagnostic_directory = parameter_settings["diagnostic_directory"]
         self.model_directory = parameter_settings["model_directory"]
         self.model_directory_path = os.path.join(self.repository_directory,self.model_directory)
         # forecast & capa data
@@ -1236,6 +1442,7 @@ class ConfigParse:
         self.r_script_lakelevels = parameter_settings["r_script_lakelevels"]
         self.r_script_tempdiff = parameter_settings["r_script_tempdiff"]
         self.lwcb_db_path = parameter_settings["lwcb_db_path"]
+        self.r_script_diagnostics_hydensembles = parameter_settings["r_script_diagnostics_hydensembles"]
 
 
         ## ===== dates
@@ -1283,5 +1490,24 @@ class ConfigParse:
         
         
 
+def create_forecast_folder(output_directory,forecast_date):
+    """
+    create unique timestamped folder to hold each execution of operational framework.
     
+    output name = forecast_YYYYMMDD_MMSS
+    """
+    
+    # get local time object for timestamp
+    tmp_time = time.strptime(forecast_date, "%Y/%m/%d")
+    # out name for directory
+    dir_name = "forecast_%02d%02d%02d" %(tmp_time.tm_year,tmp_time.tm_mon,tmp_time.tm_mday)
+    
+    mkdir_path = os.path.join(output_directory,dir_name)
+    
+    # create directory
+    if not os.path.exists(mkdir_path):
+      os.mkdir(mkdir_path)
+    
+    # return path for output directory & local timestamp for naming
+    return mkdir_path,tmp_time
 

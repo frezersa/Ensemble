@@ -35,16 +35,26 @@ def buildTime (input):
     Returns:
         time object
     """
-  return datetime.datetime.strptime(input + ":00:00", "%H:%M:%S").time()
+    return datetime.datetime.strptime(input + ":00:00", "%H:%M:%S").time()
   
   
   
 def ResInflowGenerator(config_file, template_name, start_date, NumDays = 10):
     """
-    Generates a reservoir inflow file in the resrl directory
+    Generates a reservoir inflow file in the resrl directory. Each reservoir is filled with a '-1' for each day of the forecast.
+    The resrl forecast file is required so WATFLOOD can output the resin.csv file for the specified reservoirs.
+    This is typically just run for the forecast, the hindcast uses an R-script that queries the LWCB database.
     
     Args:
+        config_file: see class ConfigParse()
+        template_name: name of the reservoir inflow template found in the template directory (typically set to the 'lib' directory)
+        start_date: string in format 'YYYY/MM/DD' specifying the start date
+        NumDays: integer specifying the number of days to fill '-1' in the file for
+        
+    Returns:
+        NULL - but outputs a *_rin.tb0 file
     """
+    
     #initialize useful variables
     repo_path = config_file.repository_directory
     
@@ -94,7 +104,7 @@ def ResInflowGenerator(config_file, template_name, start_date, NumDays = 10):
                 file.write(str(val.rjust(15)) + " "),
             
         file.write('\n')
-        #print ""
+
         
     #print a -1.000 for each station for each day 
     for i in range (0,NumDays):
@@ -107,11 +117,22 @@ def ResInflowGenerator(config_file, template_name, start_date, NumDays = 10):
     file.close()
     
     
-        
-  
-  
+
+    
 def StreamFlowGenerator(config_file, template_name, start_date, NumDays = 10):
     """
+    Generates a streamflow file in the strfw directory. Each stream gauge is filled with a '-1' for each day of the forecast.
+    WATFLOOD bases the duration of the simulation on this file so it is important to make sure the number of days is correct. 
+    This function is only used for the forecast, the hindcast simulation queries the LWCB database via an R-script.
+    
+    Args:
+        config_file: see class ConfigParse()
+        template_name: name of the streamflow template found in the template directory (typically set to the 'lib' directory)
+        start_date: string in format 'YYYY/MM/DD' specifying the start date
+        NumDays: integer specifying the number of days to fill '-1' in the file for
+        
+    Returns:
+        NULL - but outputs a *_str.tb0 file
     """
 
     #initialize useful variables
@@ -164,7 +185,7 @@ def StreamFlowGenerator(config_file, template_name, start_date, NumDays = 10):
                 file.write(str(val.rjust(15)) + " "),
             
         file.write('\n')
-        #print ""
+
         
     #print a -1.000 for each station for each day 
     for i in range (0,NumDays):
@@ -179,9 +200,79 @@ def StreamFlowGenerator(config_file, template_name, start_date, NumDays = 10):
 
 
 
-
-
+def GenericTemplateWriter(config_file, template_name, start_date):
+    """
+    Generic tb0 template writter. 
     
+    Args:
+        config_file: see class ConfigParse()
+        template_name: name of the streamflow template found in the template directory (typically set to the 'lib' directory)
+        start_date: string in format 'YYYY/MM/DD' specifying the start date
+        
+    Returns:
+        NULL - but copies and renames specified file to the appropriate directory
+    """
+
+    #initialize useful variables
+    repo_path = config_file.repository_directory
+    
+    file = open(os.path.join(repo_path,"lib",template_name),'rb')
+    table = [row.strip().split() for row in file]
+    
+    start_date = datetime.datetime.strptime(start_date,"%Y/%m/%d")
+    suffix =  template_name.split('_')[1]
+   
+    
+    #build new table from Template
+    #NOTE: ColumnName MUST come before the coefficients in the TEMPLATE file    
+    indices = []
+    for i, line in enumerate(table):
+        #fix some of the meta data
+        if line[0] == ':CreationDate':
+            table[i][1] = datetime.datetime.now().strftime("%Y-%m-%d")
+            table[i][2] = datetime.datetime.now().strftime("%H:%M")
+        
+        if line[0] == ':StartDate':
+            table[i][1] = start_date.strftime("%Y/%m/%d")
+        
+        if line[0] == ':StartTime':
+            table[i][1] = start_date.strftime("%H:%M:%S")
+
+
+    #figure out where to write the output
+    if suffix == "crs.pt2":
+        write_directory = "snow1"
+    if suffix == "div.tb0":
+        write_directory = "diver"
+    if suffix == "gsm.r2c":
+        write_directory = "moist"
+    if suffix == "ill.pt2":
+        write_directory = "level"
+    if suffix == "psm.pt2":
+        write_directory = "moist"
+    if suffix == "rel.tb0":
+        write_directory = "resrl"
+    if suffix == "rin.tb0":
+        write_directory = "resrl"
+    if suffix == "str.tb0":
+        write_directory = "strfw"
+    if suffix == "swe.r2c":
+        write_directory = "snow1"
+        
+    # write tb0 file
+    file = open(os.path.join(config_file.model_directory_path,write_directory,start_date.strftime("%Y%m%d") + "_" + suffix), 'w')
+
+    #output the new data    
+    for i, line in enumerate(table):   
+        for j, val in enumerate(line):
+            if j is 0:
+                file.write(str(val.ljust(20))),
+            else:
+                file.write(str(val.rjust(15))),
+        file.write("\n")
+
+    file.close()
+ 
     
     
     
@@ -215,9 +306,7 @@ def EventGenerator(config_file, start_date, first_event = True, events_to_follow
         #events_to_follow = events_to_follow.split(",")
         events_to_follow = [datetime.datetime.strptime(s,"%Y%m%d.evt") for s in events_to_follow]
 
-
-
-
+        
     #Go through Template file replacing everything that needs to be replaced
     Infile = open(os.path.join(repo_path,"lib","TEMPLATE.evt"), 'rb')
     table = [row.strip().split() for row in Infile]
@@ -280,79 +369,3 @@ def EventGenerator(config_file, start_date, first_event = True, events_to_follow
     
     
     
-    
-    
-#############################################################################################
-# generic tb0 template writter. takes template file, date in YYYY/MM/DD, directory to write file to & file suffix (_ill.pt2)
-#############################################################################################
-
-def GenericTemplateWriter(config_file, template_name, start_date):
-
-    #initialize useful variables
-    repo_path = config_file.repository_directory
-    
-    file = open(os.path.join(repo_path,"lib",template_name),'rb')
-    table = [row.strip().split() for row in file]
-    
-    start_date = datetime.datetime.strptime(start_date,"%Y/%m/%d")
-    suffix =  template_name.split('_')[1]
-   
-    
-    #build new table from Template
-    #NOTE: ColumnName MUST come before the coefficients in the TEMPLATE file    
-    indices = []
-    for i, line in enumerate(table):
-        #fix some of the meta data
-        if line[0] == ':CreationDate':
-            table[i][1] = datetime.datetime.now().strftime("%Y-%m-%d")
-            table[i][2] = datetime.datetime.now().strftime("%H:%M")
-        
-        if line[0] == ':StartDate':
-            table[i][1] = start_date.strftime("%Y/%m/%d")
-        
-        if line[0] == ':StartTime':
-            table[i][1] = start_date.strftime("%H:%M:%S")
-
-
-    #figure out where to write the output
-    if suffix == "crs.pt2":
-        write_directory = "snow1"
-    if suffix == "div.tb0":
-        write_directory = "diver"
-    if suffix == "gsm.r2c":
-        write_directory = "moist"
-    if suffix == "ill.pt2":
-        write_directory = "level"
-    if suffix == "psm.pt2":
-        write_directory = "moist"
-    if suffix == "rel.tb0":
-        write_directory = "resrl"
-    if suffix == "rin.tb0":
-        write_directory = "resrl"
-    if suffix == "str.tb0":
-        write_directory = "strfw"
-    if suffix == "swe.r2c":
-        write_directory = "snow1"
-        
-        
-        
-
-    # write tb0 file
-    file = open(os.path.join(config_file.model_directory_path,write_directory,start_date.strftime("%Y%m%d") + "_" + suffix), 'w')
-
-    #output the new data    
-    for i, line in enumerate(table):   
-        for j, val in enumerate(line):
-            if j is 0:
-                file.write(str(val.ljust(20))),
-            else:
-                file.write(str(val.rjust(15))),
-        file.write("\n")
-
-    file.close()
-
-
-
-  
-
-

@@ -19,7 +19,7 @@ cat(paste("1 - ",script_directory <- args[1]),"\n") #working directory
 cat(paste("2 - ",model_directory <- args[2]),"\n") #typically 'wpegr'
 # model_directory <- "wpegr"
 
-cat(paste("3 - ",Forecast <- args[3]),"\n") #typically 'wpegr'
+cat(paste("3 - ",Forecast <- args[3]),"\n") 
 # Forecast <- "False"
 
 
@@ -51,8 +51,13 @@ inflowplots <- function(percentileframe,resin_hind,LakeName,m,avg=FALSE){
   }else{ #else plot the forecast data also
     #create data frame for ggplot to work with
     futuredates<-tail(resin_hind$date.time,n=1) + c(1:10)
-    tdf<-merge(Obs=zoo(resin_hind$observed.table[,m],resin_hind$date.time),Est=zoo(resin_hind$estimated.table[,m],resin_hind$date.time),
-               Min=zoo(percentileframe[c(2),],futuredates),Max=zoo(percentileframe[c(6),],futuredates),Med=zoo(percentileframe[c(4),],futuredates))
+    tdf<-merge(Obs=zoo(resin_hind$observed.table[,m],resin_hind$date.time),
+               Est=zoo(resin_hind$estimated.table[,m],resin_hind$date.time),
+               Min=zoo(percentileframe[c(2),],futuredates),
+               Max=zoo(percentileframe[c(6),],futuredates),
+               Med=zoo(percentileframe[c(4),],futuredates),
+               lowerq=zoo(percentileframe[c(3),],futuredates),
+               upperq=zoo(percentileframe[c(5),],futuredates))
   }
   
   #subset
@@ -61,7 +66,7 @@ inflowplots <- function(percentileframe,resin_hind,LakeName,m,avg=FALSE){
   #create 7 day moving average
   if(avg){
     if(percentileframe != FALSE){
-      tdf[tail(resin_hind$date.time[],7),3:5] <- tdf[tail(resin_hind$date.time[],7),2] #append observed so that average can be applied to forecast
+      tdf[tail(resin_hind$date.time[],7),3:7] <- tdf[tail(resin_hind$date.time[],7),2] #append observed so that average can be applied to forecast
     }
     tdf <- round(rollapply(tdf,FUN=mean,width=7,align="right"),1)
   }
@@ -84,14 +89,15 @@ inflowplots <- function(percentileframe,resin_hind,LakeName,m,avg=FALSE){
       geom_line(aes(y = Obs,col="black"),size=0.5) +
       geom_line(aes(y=Est,col="red"),size=0.5) +
       geom_ribbon(aes(ymin=Min,ymax=Max,fill="dimgray"),alpha=.4) +
+      geom_ribbon(aes(ymin=lowerq, ymax=upperq,fill="black"),alpha=.4) +
       geom_line(aes(y=Med),size=0.5,col="red") +
       theme_bw() + xlab("Date") + ylab("Flow (m3/s)") + ggtitle(LakeName) +
       scale_y_continuous(limits=c(min(0,tdf$Obs,na.rm=T),max(tdf$Obs,na.rm=T))) +
-      scale_fill_identity(name = '', guide = 'legend',labels = c('90% Conf.')) +
+      scale_fill_identity(name = '', guide = 'legend',labels = c('50% Conf.','90% Conf.')) +
       scale_colour_manual(name = '', 
                           values =c('black'='black','red'='red'), labels = c('Observed','Modelled \n (Median)')) +
       theme(legend.position=c(0.3,.9),legend.box='horizontal',legend.direction='horizontal',
-            legend.text = element_text(size=5), legend.key.size = unit(0.5, "cm"))
+            legend.text = element_text(size=10), legend.key.size = unit(1, "cm"))
   }
   return(p) 
 }
@@ -180,6 +186,7 @@ LakeNames<- resin_hind$stations
 
 output<-data.frame()
 #loop to plot
+m=1
 for(m in 1:num_reservoirs){
   if(Forecast == "True" || Forecast == "TRUE" || Forecast == TRUE){
     assign(paste0("p",m),inflowplots(percentileframe=MasterPerc[[m]],resin_hind=resin_hind,LakeName=LakeNames[m],m=m,avg=FALSE))
@@ -191,16 +198,22 @@ for(m in 1:num_reservoirs){
 }
 
 
+
+
 #Export plots
-png(file.path(output_directory,"Resinflows_1day_1.png"),res=150,width=2000,height=1300)
+resolution = 150
+Width = 3000
+Height = 2000
+
+png(file.path(output_directory,"Resinflows_1day_1.png"),res=resolution,width=Width,height=Height)
 suppressWarnings(multiplot(p4,p6,p5,p1,cols=2))
 garbage<-dev.off()
 
-png(file.path(output_directory,"Resinflows_1day_2.png"),res=150,width=2000,height=1300)
+png(file.path(output_directory,"Resinflows_1day_2.png"),res=resolution,width=Width,height=Height)
 suppressWarnings(multiplot(p2,p7,p3,cols=2))
 garbage<-dev.off()
 
-png(file.path(output_directory,"LOWLS_1day.png"),res=150,width=1000,height=1300)
+png(file.path(output_directory,"LOWLS_1day.png"),res=resolution,width=Width/2,height=Height)
 suppressWarnings(multiplot(p1,p2,cols=1))
 garbage<-dev.off()
 
@@ -226,15 +239,15 @@ for(m in 1:num_reservoirs){
 
 
 #Export plots
-png(file.path(output_directory,"Resinflows_7day_1.png"),res=150,width=2000,height=1300)
+png(file.path(output_directory,"Resinflows_7day_1.png"),res=resolution,width=Width,height=Height)
 suppressWarnings(multiplot(p4,p6,p5,p1,cols=2))
 garbage<-dev.off()
 
-png(file.path(output_directory,"Resinflows_7day_2.png"),res=150,width=2000,height=1300)
+png(file.path(output_directory,"Resinflows_7day_2.png"),res=resolution,width=Width,height=Height)
 suppressWarnings(multiplot(p2,p7,p3,cols=2))
 garbage<-dev.off()
 
-png(file.path(output_directory,"LOWLS_7day.png"),res=150,width=1000,height=1300)
+png(file.path(output_directory,"LOWLS_7day.png"),res=resolution,width=Width/2,height=Height)
 suppressWarnings(multiplot(p1,p2,cols=1))
 garbage<-dev.off()
 

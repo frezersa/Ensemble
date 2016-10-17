@@ -6,7 +6,7 @@ August 30, 2016
 Runs the main operations for the WATFLOOD framework. Requires two arguments to be passed in when calling
 the script.
 -c 'full path to the configuration file'
--m 'Type of model run: Spinup,DefaultHindcast,HindcastAdjust,Forecast'
+-m 'Type of model run: Spinup,DefaultHindcast,HindcastAdjust,Forecast,AcceptAndCopy'
 
 Functions are defined in the custom modules located in same folder (FrameworkLibrary.py,
 met_process.py, post_process.py, pre_process.py, pyEnSim_basics.py)
@@ -30,7 +30,7 @@ import multiprocessing
 import pyEnSim.pyEnSim as pyEnSim
 
 #import custom modules
-from FrameworkLibrary import *
+import FrameworkLibrary
 import post_process
 
 
@@ -46,142 +46,34 @@ def main():
     parser.parse_args(namespace=data)
 
     ## read configuration file
-    config_file = ConfigParse(data.Config) #config_file is a class that stores all parameters
+    config_file = FrameworkLibrary.ConfigParse(data.Config) #config_file is a class that stores all parameters
     model_run = data.ModelRun
-    members = filter(None,config_file.ensemble_members.split(",")) #find out which hydr. ensemble members to run
 
     #= set inital working directory to repository root folder
     os.chdir(config_file.repository_directory)
 
-    
-        
     ## ===== run operational framework
 
     # if Update Configuration File (specifically the hindcast and forecast dates)
     if model_run == "UpdateConfig":
         print "\n===============Updating Configuration File with Today's dates===================\n"
-        UpdateConfig(config_file)
-        
+        FrameworkLibrary.UpdateConfig(config_file)
         
     #= spin up 
     elif model_run == "Spinup":
-        print "\n===============Running Spin-up===================\n"
+        FrameworkLibrary.spin_up(config_file)
         
-        # Prepare Directories
-        clean_up(config_file)
-        generate_spinup_event_files(config_file,
-                                    config_file.spinup_start_date, 
-                                    config_file.spinup_end_date)
-        generate_spinup_generic_files(config_file,
-                                      config_file.spinup_start_date)
-        query_lwcb_db(config_file,
-                      config_file.spinup_start_date,
-                      config_file.spinup_end_date)
-        if config_file.use_capa == "True":
-            spinup_capa(config_file,
-                        config_file.spinup_start_date,
-                        config_file.spinup_end_date)
-        if config_file.use_GEMTemps == "True":
-            spinup_GEMTemps(config_file,
-                            config_file.spinup_start_date,
-                            config_file.spinup_end_date)
-        calculate_distributed_data(config_file,
-                                   snow = False,
-                                   moist = False)
-        
-        for i in members:
-          setup_members(config_file,i)
-          copy_memberevents(config_file,i)
-
-        # execute watflood
-        input = [[config_file,config_file.repository_directory,"False"]] #MotherShip input
-        for j,member in enumerate(members): #member input
-          member_repository = os.path.join(os.path.dirname(os.path.dirname(config_file.repository_directory)), member,"Repo")
-          input.append([config_file,member_repository,"False"])
-          
-        pool = multiprocessing.Pool(processes = len(members) + 1)
-        #pool = multiprocessing.Pool(processes = 1)
-        pool.map(execute_and_plot_spinup,input)
-
-
-
     # hindcast
     elif model_run == "DefaultHindcast":
-        print "\n===============Running Hindcast===================\n"
+        FrameworkLibrary.hindcast(config_file)
         
-        #Prepare Directories
-        clean_up(config_file)
-        copy_resume(config_file, "Repo_spinup")
-        query_lwcb_db(config_file,
-                      start_date = config_file.historical_start_date,
-                      end_date = config_file.historical_end_date)
-        met_process.query_ec_datamart_hindcast(config_file)
-        
-        #generate the event file
-        generate_hindcast_event_file(config_file,
-                                     start_date = config_file.historical_start_date,
-                                     resume_toggle = True, 
-                                     tbc_toggle = True)
-        
-        #Run WATFLOOD programs (ragmet, etc) to distribute point data
-        #if CaPA and GEMtemps are being used, no distributed data is calculated
-        calculate_distributed_data(config_file,
-                                   snow = False,
-                                   moist = False)
-
-                                   
-        for i in members:
-          setup_members(config_file,i)
-          copy_memberevents(config_file,i)
-          member_path = os.path.join(os.path.dirname(os.path.dirname(config_file.repository_directory)), i)
-          copy_resume(config_file, "Repo_spinup", member_path=member_path)
-
-        # execute watflood and plot hydrographs
-        input = [[config_file,config_file.repository_directory,"False"]] #MotherShip input
-        for j,member in enumerate(members): #member input
-          member_repository = os.path.join(os.path.dirname(os.path.dirname(config_file.repository_directory)), member, "Repo")
-          input.append([config_file, member_repository, "False"])
-          
-        pool = multiprocessing.Pool(processes = len(members) + 1)
-        pool.map(execute_and_plot_hindcast,input)
-
-                                   
-                                  
     # Forecast
     elif model_run == "Forecast":
-        print "\n===============Running Forecast===================\n"
+        FrameworkLibrary.forecast(config_file)
         
-        # Prepare Directories
-        clean_up(config_file, met = True,tem = True)
-        copy_resume(config_file,"Repo_hindcast")
-        generate_forecast_files(config_file)
-        met_process.query_meteorological_forecast(config_file)
-        update_model_folders(config_file)
-        
-        for i in members:
-          setup_members(config_file,i)
-          member_path = os.path.join(os.path.dirname(os.path.dirname(config_file.repository_directory)), i)
-          copy_resume(config_file, "Repo_hindcast", member_path=member_path)
-          
-          
-        # execute watflood (this calls parallel processing for spl execution
-        generate_run_event_files_forecast(config_file,members)
-
-        post_process.generate_meteorlogical_graphs(config_file) #only for MotherShip
-        
-        #execute parallel program to generate diagnostics
-        input = [[config_file, config_file.repository_directory, "True"]] #MotherShip input
-        for j,member in enumerate(members): #member input
-          member_repository = os.path.join(os.path.dirname(os.path.dirname(config_file.repository_directory)), member, "Repo")
-          input.append([config_file, member_repository, "True"])
-          
-        pool = multiprocessing.Pool(processes = len(members) + 1)
-        pool.map(analyze_and_plot_forecast,input)
-        
-
-        
-
-
+    # Accept and Copy
+    elif model_run == "AcceptAndCopy":
+        FrameworkLibrary.AcceptAndCopy(config_file)
 
     else:
         print "\noptions selected are not correct. please review configuration settings.\n"
