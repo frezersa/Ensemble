@@ -7,14 +7,14 @@
 rm(list=ls())
 
 #check and install packages if required
-list.of.packages <- c("ggplot2")
+list.of.packages <- c("ggplot2","grid")
 new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
 if(length(new.packages)) install.packages(new.packages,repos='http://cran.us.r-project.org')
 
 #Get arguments
 args <- commandArgs(TRUE)
 cat(paste("1 - ",script_directory <- args[1]),"\n") #working directory
-# script_directory <- "Q:/WR_Ensemble_dev/A_MS/Repo/scripts"
+# script_directory <- "Q:/LW_Ens/A_MS/Repo/scripts"
 
 cat(paste("1 - ",model_directory <- args[2]),"\n") #typically 'wpegr'
 # model_directory <- "wpegr"
@@ -27,6 +27,7 @@ setwd(script_directory)
 source("rlib/libWATFLOOD_IO.R")
 source("rlib/libENSIM_IO.R")
 source("rlib/LWSlib.R")
+library(grid)
 
 #set directory paths
 forecast_directory <- file.path(dirname(script_directory),"forecast")
@@ -166,12 +167,12 @@ suppressWarnings(multiplot(p1,p2,p3,p4,p5,p6,p7,p8,p9,cols=3))
 garbage<-dev.off()
 
 png(file.path(output_directory,"Streamflows_2.png"),res=150,width=2000,height=1300)
-suppressWarnings(multiplot(p10,p11,p12,p13,p14,p15,p16,p17,p18,cols=3))
+suppressWarnings(multiplot(p10,p11,p12,cols=3))
 garbage<-dev.off()
 
-png(file.path(output_directory,"Streamflows_3.png"),res=150,width=2000,height=1300)
-suppressWarnings(multiplot(p19,p20,p21,p22,p23,p24,p25,p26,p27,cols=3))
-garbage<-dev.off()
+# png(file.path(output_directory,"Streamflows_3.png"),res=150,width=2000,height=1300)
+# suppressWarnings(multiplot(p19,p20,p21,p22,p23,p24,p25,p26,p27,cols=3))
+# garbage<-dev.off()
 
 
 

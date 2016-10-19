@@ -817,7 +817,8 @@ def query_ec_datamart_hindcast(config_file):
     print "Calculating YYYYMMDD_dif.r2c file /n"
     cmd = [config_file.rscript_path,
           os.path.join(config_file.repository_directory,config_file.scripts_directory,config_file.r_script_tempdiff),
-          os.path.join(config_file.repository_directory,config_file.scripts_directory)]
+          os.path.join(config_file.repository_directory,config_file.scripts_directory),
+          os.path.join(config_file.model_directory_path, "tempr")]
     subprocess.call(cmd,shell=True)
     
     

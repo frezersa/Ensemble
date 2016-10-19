@@ -7,14 +7,14 @@
 rm(list=ls())
 
 #check and install packages if required
-list.of.packages <- c("ggplot2")
+list.of.packages <- c("ggplot2","grid")
 new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
 if(length(new.packages)) install.packages(new.packages,repos='http://cran.us.r-project.org')
 
 #Get arguments
 args <- commandArgs(TRUE)
 cat(paste("1 - ",script_directory <- args[1]),"\n") #working directory
-# script_directory <- "Q:/WR_Ens_dev/A_MS/Repo/scripts"
+# script_directory <- "Q:/WR_Ens_dev/50B/Repo/scripts"
 
 cat(paste("2 - ",model_directory <- args[2]),"\n") #typically 'wpegr'
 # model_directory <- "wpegr"
@@ -28,6 +28,7 @@ setwd(script_directory)
 source("rlib/libWATFLOOD_IO.R")
 source("rlib/libENSIM_IO.R")
 source("rlib/LWSlib.R")
+library(grid)
 
 #set directory paths
 forecast_directory <- file.path(dirname(script_directory),"forecast")
@@ -105,6 +106,7 @@ inflowplots <- function(percentileframe,resin_hind,LakeName,m,avg=FALSE){
 
 
 inflowdata <- function(percentileframe,resin_hind,LakeName,m){
+  Lookback <- 14
   #create timeseries and apply 7-day averaging to minimize wind effects (end-averaging)
   tdf<-merge(Obs=zoo(resin_hind$observed.table[,m],resin_hind$date.time),Est=zoo(resin_hind$estimated.table[,m],resin_hind$date.time))
   
@@ -199,12 +201,12 @@ Width = 3000
 Height = 2000
 
 png(file.path(output_directory,"Resinflows_1day_1.png"),res=resolution,width=Width,height=Height)
-suppressWarnings(multiplot(p4,p6,p5,p1,cols=2))
+suppressWarnings(multiplot(p1,p2,p3,p4,cols=2))
 garbage<-dev.off()
 
-png(file.path(output_directory,"Resinflows_1day_2.png"),res=resolution,width=Width,height=Height)
-suppressWarnings(multiplot(p2,p7,p3,cols=2))
-garbage<-dev.off()
+# png(file.path(output_directory,"Resinflows_1day_2.png"),res=resolution,width=Width,height=Height)
+# suppressWarnings(multiplot(p2,p7,p3,cols=2))
+# garbage<-dev.off()
 
 png(file.path(output_directory,"LOWLS_1day.png"),res=resolution,width=Width/2,height=Height)
 suppressWarnings(multiplot(p1,p2,cols=1))
@@ -233,12 +235,12 @@ for(m in 1:num_reservoirs){
 
 #Export plots
 png(file.path(output_directory,"Resinflows_7day_1.png"),res=resolution,width=Width,height=Height)
-suppressWarnings(multiplot(p4,p6,p5,p1,cols=2))
+suppressWarnings(multiplot(p1,p2,p3,p4,cols=2))
 garbage<-dev.off()
 
-png(file.path(output_directory,"Resinflows_7day_2.png"),res=resolution,width=Width,height=Height)
-suppressWarnings(multiplot(p2,p7,p3,cols=2))
-garbage<-dev.off()
+# png(file.path(output_directory,"Resinflows_7day_2.png"),res=resolution,width=Width,height=Height)
+# suppressWarnings(multiplot(p2,p7,p3,cols=2))
+# garbage<-dev.off()
 
 png(file.path(output_directory,"LOWLS_7day.png"),res=resolution,width=Width/2,height=Height)
 suppressWarnings(multiplot(p1,p2,cols=1))

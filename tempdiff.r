@@ -24,15 +24,13 @@ Sys.setenv(TZ="GMT") #set time zone (not sure if this is required)
 #get arguments
 args <- commandArgs(TRUE)
 cat(paste("1 - ",script_dir <- args[1]),"\n") #working directory
-#cat("this works")
-
-#script_dir <- "C:/WR_WTFLD_Framework_D/Model_Repository/scripts"
+cat(paste("2 - ",tempr_dir <- args[2]),"\n") #tempr directory where *tem.r2c files are stored
 
 
-tempr_dir <- paste0(script_dir,"/../wpegr/tempr/")
-tempr_files <- list.files(tempr_dir)
-tem_files <- tempr_files[grep("tem",tempr_files)]
 
+
+
+#First define some functions##########################
 
 stackr2c <- function(r2cfile){
   #get header data
@@ -56,7 +54,6 @@ stackr2c <- function(r2cfile){
   xdelta<-as.numeric(strsplit(header.lines[xdelta], " +")[[1]][2])
   
   xmx <- xmn + xcount*xdelta
-  
   
   yorigin<-grep(pattern=":yOrigin",ignore.case=T,r2cfile)
   ymn<-as.numeric(strsplit(header.lines[yorigin], " +")[[1]][2])
@@ -99,7 +96,6 @@ writer2c<-function(header,data,FileName="default.r2c"){
   #Write header to the file
   writeLines(header, con = FileName)
   
-  
   writeBrick<-function(i){
     
     timestamp<-as.POSIXct(strptime(names(data[[i]]),"X%Y.%m.%d"),tz="GMT")
@@ -116,52 +112,47 @@ writer2c<-function(header,data,FileName="default.r2c"){
     #write frame ender
     write(frameender, file = FileName,append=T)
     
-    
   }
-  
   
   invisible(lapply(c(1:nlayers(data)),writeBrick))
   
-  
 }
-#for(i in tem_files){print()}
+
+########Main Script####################
+
+#get list of relevant files in the tempr directory
+tempr_files <- list.files(tempr_dir)
+tem_files <- tempr_files[grep("tem",tempr_files)]
+
+#create a difference file for each *tem.r2c file
 for(i in tem_files){
   Year <- substr(i,1,4)
   outname <- gsub("tem","dif",i)
   
   #Plot single year***********************************
-  lines<-readLines(paste0(tempr_dir,i))
+  lines <- readLines(file.path(tempr_dir,i))
 
-  r2cfile<-lines
+  r2cfile <- lines
   #create raster brick
-  timestack<-stackr2c(lines)
+  timestack <- stackr2c(lines)
 
-  #timestack[[2]]<-flip(timestack[[2]],'y') #the frame orgin of y-axis is opposite in r2c and raster templates
-  
   # create timeseries
-  timestamps<-as.POSIXct(strptime(names(timestack[[2]]),"X%Y.%m.%d.%H.%M"))
-  timestack.xts<-rts(timestack[[2]],timestamps)
+  timestamps <- as.POSIXct(strptime(names(timestack[[2]]),"X%Y.%m.%d.%H.%M"))
+  timestack.xts <- rts(timestack[[2]],timestamps)
 
-  #timestack.xts
-  #plot(timestack.xts,"20040101")
-  
   #get max and min for each day
   timestack.min <- apply.daily(timestack.xts,min)
   timestack.max <- apply.daily(timestack.xts,max)
   days <- as.Date(index(timestack.max))
-
-
   
-  
-  timestack.diff <- do.call("stack",lapply(c(1:length(index(timestack.min))),
+  timestack.diff <- do.call("stack", lapply(c(1:length(index(timestack.min))),
                            function(i){
                              diff <- timestack.max[[i]] - timestack.min[[i]]
                            }))
 
   names(timestack.diff) <- days
-
   
-  
-  writer2c(timestack[[1]],timestack.diff,FileName=paste0(tempr_dir,outname))
+  writer2c(timestack[[1]], timestack.diff, FileName = file.path(tempr_dir,outname))
 
 }
+

@@ -824,7 +824,7 @@ writer2c<-function(header,data,FileName="default.r2c",decimal=6,frametime="days"
   
 }
 
-print.to.file <- function(df, filename,colspace=NA) {
+print.to.file <- function(df, filename,colspace=NA,getcolspace=FALSE) {
   cnames <- colnames(df)
   
   if(is.na(colspace[1])){
@@ -846,7 +846,9 @@ print.to.file <- function(df, filename,colspace=NA) {
     d<-t(d)
   }
   
+  if(!getcolspace){
   write.table(d, filename, quote=F, row.names=F, col.names=F,append=T)
+  }
   return(n)
 }
 

@@ -66,6 +66,7 @@ def grib_save_r2c(grib_path, r2c_template_path, r2cTargetFilePath, timestamp = d
         
     Returns:
         NULL - outputs r2c file(s)
+        
     """
     #get  data from the grib object
     grib_object = load_grib_file(grib_path)
@@ -219,8 +220,6 @@ def grib_fastappend_r2c(grib_path, template_r2c_object, r2cTargetFilePath, frame
         
         
 
-
-    
 def r2c_EndFrameData(r2cTargetFilePath):
     """
     Given a path to an ascii r2c file, it returns the last frame number and frame time

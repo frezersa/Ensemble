@@ -36,8 +36,7 @@ def generate_hydrographs(config_file, member_directory, use_forecast):
     subprocess.call(cmd,shell=True)
     
 
-    
-
+   
 def generate_meteorlogical_graphs(config_file):
     """
     Generates R daily graphics based on meteorological r2c files. output to /diagnostic folder
@@ -57,12 +56,12 @@ def generate_meteorlogical_graphs(config_file):
     
     #get met files in hindcast directory
     source_dir = os.path.join(os.path.dirname(config_file.repository_directory), "Repo_hindcast")
-    met_hind_list = sorted(os.listdir(os.path.join(source_dir, "wpegr", "radcl")))
+    met_hind_list = sorted(os.listdir(os.path.join(source_dir, config_file.model_directory, "radcl")))
     
     #get first file in each of the directorys
     met_str_forecast = os.path.join(config_file.model_directory, "radcl", met_list[0])
     tem_str_forecast = os.path.join(config_file.model_directory, "tempr", tempr_list[0])
-    met_str_hindcast = os.path.join(source_dir, "wpegr", "radcl", met_hind_list[0]) #this assumes there is only one hindcast file
+    met_str_hindcast = os.path.join(source_dir, config_file.model_directory, "radcl", met_hind_list[0]) #this assumes there is only one hindcast file
     
     #run the R-script to generate meteorological plots
     cmd = [config_file.rscript_path, os.path.join(config_file.r_script_directory, config_file.r_script_diagnostics_maps),
@@ -73,6 +72,7 @@ def generate_meteorlogical_graphs(config_file):
             met_str_hindcast,
             config_file.forecast_date]
     subprocess.call(cmd,shell=True)
+    
     
       
 def generate_dss(hecdss_vue_path,r_script_directory,hec_writer_script):
