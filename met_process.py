@@ -6,6 +6,7 @@ Relies heavily on the pyEnSim_basics module to convert grib files to r2c files
 """
 
 #import standard modules
+# from __future__ import division #used for parallel processing
 import os
 import datetime
 import sys
@@ -14,6 +15,8 @@ import subprocess
 import urllib2
 import re
 import shutil
+
+
 
 #import custom modules
 import FrameworkLibrary 
@@ -193,7 +196,7 @@ def repo_pull_datamart(repos,filePath,timestamp,repo_path):
 
 
 
-def grib2r2c_datamart(repos, wx_repo, r2c_template, datestamp_object, grib_repo):
+def grib2r2c_datamart(repos, wx_repo, r2c_template, datestamp_object, grib_repo, silent = False):
     """
     Function to process the EC datamart grib files (both deterministic and ensemble)
     
@@ -258,11 +261,12 @@ def grib2r2c_datamart(repos, wx_repo, r2c_template, datestamp_object, grib_repo)
         #loop through each timestep
         for j in range(StitchTimeStart/DeltaTimeStep,StitchTimeEnd/DeltaTimeStep+1):
             
-            pbar = j/float(StitchTimeEnd/DeltaTimeStep) * 40
-            sys.stdout.write('\r')
-            # the exact output you're looking for:
-            sys.stdout.write("[%-40s] %d%%" % ('='*int(pbar), pbar/40*100))
-            sys.stdout.flush() 
+            if silent is False:
+                pbar = j/float(StitchTimeEnd/DeltaTimeStep) * 40
+                sys.stdout.write('\r')
+                # the exact output you're looking for:
+                sys.stdout.write("[%-40s] %d%%" % ('='*int(pbar), pbar/40*100))
+                sys.stdout.flush() 
         
             frame_index = frame_index + 1
             
@@ -311,7 +315,7 @@ def grib2r2c_datamart(repos, wx_repo, r2c_template, datestamp_object, grib_repo)
           
 
 
-def grib_to_r2c_nomads(repos, r2c_repo, r2c_template, datestamp_object, grib_repo):
+def grib_to_r2c_nomads(repos, r2c_repo, r2c_template, datestamp_object, grib_repo, silent = False):
     """
     Function to convert the files that have been downloaded via the repo_pull_nomads function
     Note that the ensemble files are handled differently than the EC datamart ensemble files.
@@ -361,11 +365,12 @@ def grib_to_r2c_nomads(repos, r2c_repo, r2c_template, datestamp_object, grib_rep
     print "Converting Hours: " + str(DeltaTimeStart) + " to " + str(DeltaTimeEnd)
     #for each ensemble member (1-20)
     for i in range(1,num_ensembles+1):
-        pbar = i/float(num_ensembles) * 40
-        sys.stdout.write('\r')
-        # the exact output you're looking for:
-        sys.stdout.write("[%-40s] %d%%" % ('='*int(pbar), pbar/40*100))
-        sys.stdout.flush()
+        if silent is False:
+            pbar = i/float(num_ensembles) * 40
+            sys.stdout.write('\r')
+            # the exact output you're looking for:
+            sys.stdout.write("[%-40s] %d%%" % ('='*int(pbar), pbar/40*100))
+            sys.stdout.flush()
 
         #for each timestep
         for j in range(DeltaTimeStart/DeltaTimeStep,DeltaTimeEnd/DeltaTimeStep + 1):
@@ -505,20 +510,56 @@ def query_meteorological_forecast(config_file):
       r2c_template = os.path.join(repo_path,config_file.lib_directory,"EmptyGridLL.r2c")
            
       print "Converting Data.... \n"
+      input = []
       for k in range(len(repos_parent)): #for each 'source section'
       
         Type = repos_parent[k][8][0]
         Grouping = repos_parent[k][7][0]
         print Type + " - " + Grouping
+        
+        tmp_tuple = [Type, repos_parent[k],wx_path, r2c_template, datestamp_object, config_file.grib_forecast_repo]
+        input.append(tmp_tuple)
 
-        if "NOMAD" in Type: #if in NOMADS format
-            grib_to_r2c_nomads(repos_parent[k], wx_path, r2c_template, datestamp_object, config_file.grib_forecast_repo)
-        else: #else assume in EC datamart format
-            grib2r2c_datamart(repos_parent[k], wx_path, r2c_template, datestamp_object, config_file.grib_forecast_repo)
+        #Use this piece of code if doing serial computing*************
+        # if "NOMAD" in Type: #if in NOMADS format
+            # grib_to_r2c_nomads(repos_parent[k], wx_path, r2c_template, datestamp_object, config_file.grib_forecast_repo)
+        # else: #else assume in EC datamart format
+            # grib2r2c_datamart(repos_parent[k], wx_path, r2c_template, datestamp_object, config_file.grib_forecast_repo)
+        #*************************************************************
+            
+      print "Processing in Parallel, the status will not print correctly\n"
+      p = multiprocessing.Pool(processes = min(multiprocessing.cpu_count(),len(repos_parent) + 1))
+      p.map(convert_parallel,input)
+      
 
        
     
-
+def convert_parallel(input):
+    """
+    Executes the conversion functions (grib2r2c_datamart and grib2r2c_nomads) in parallel
+    This is for the sole purpose of speeding up the computation time
+    
+    Args:
+        input: composed of multiple tuples containing arguments for conversion functions, see 
+        last part of met_process.query_meteorological_forecast()
+    Returns:
+        NULL - converts meteorological forecast files
+    """
+    #parse input, the multithreading function requires only one input
+    Type = input[0]
+    repos = input[1]
+    wx_path = input[2]
+    r2c_template = input[3]
+    datestamp_object = input[4]
+    grib_forecast_repo = input[5]
+    
+    if "NOMAD" in Type: #if in NOMADS format
+        grib_to_r2c_nomads(repos, wx_path, r2c_template, datestamp_object, grib_forecast_repo, silent = False)
+    else: #else assume in EC datamart format
+        grib2r2c_datamart(repos, wx_path, r2c_template, datestamp_object, grib_forecast_repo, silent = False)
+    
+    
+    
 def Download_Datamart_ReAnalysisHindcast(config_file, type, RepoPath):
     """
     Downloads reanalysis data from the EC datamart, converts and appends it to existing data.
