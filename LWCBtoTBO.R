@@ -10,15 +10,15 @@ args <- commandArgs(TRUE)
 
 # root directory of scripts
 cat(paste("1 - ",script_directory <- args[1]),"\n")
-# script_directory <-"Q:/LW_Ens/A_MS/Repo/scripts"
+# script_directory <-"C:/WR_Ens_dev/A_MS/Repo/scripts"
 
 # template directory
 cat(paste("2 - ",template_directory <- args[2],"\n")) 
-# template_directory <- "Q:/LW_Ens/A_MS/Repo/lib"
+# template_directory <- "C:/WR_Ens_dev/A_MS/Repo/lib"
 
 # output directory to write tb0's
 cat(paste("3 - ",model_directory <- args[3],"\n")) 
-# model_directory <- "Q:/LW_Ens/A_MS/Repo/lowrl"
+# model_directory <- "C:/WR_Ens_dev/A_MS/Repo/wpegr"
 
 #directory name
 cat(paste("4 - ",directory_name <- args[4],"\n")) #"diver/level/raing/resrl/strfw/tempg"
@@ -46,7 +46,7 @@ cat(paste("8 - ",DBSource<- args[8],"\n"))
 StationNames<- unlist(strsplit(args[9],","))
 #StationNames<- c("LOW",149, "LSJ",168, "Namakan_L",172, "LLC",157)
 # StationNames <- unlist(strsplit("LOW,76,Rainy,58,Nam,47,Kawish,9001,Winton,9001,Basswoo,9001,Saganag,9001,Kawnipi,9001,Picker,9001,Sturg1,9001,LLC,9001,Vermill,9001,Orr,9001,Quetico,9001,DesMill,9001,RaftL,9001,Valerie,9001,Crooked,9001,Sapawe,9001,CalmLak,9001,Wh_Otte,9001,Lturtle,9001,Otukam,9001,Manit1,9001,NWBay,9001,Dryberr,9001,Atikwa,9001,Rowan,9001,Kakagi,9001",
-#                                 ","))
+                                # ","))
 
 
 
@@ -167,8 +167,11 @@ for(i in 1:length(Years)){
        
   }
   
+  #import libraries
+  source("rlib/LWSlib.R")
+  
   colspacing <- print.to.file(tmpdf,Filelink,getcolspace=TRUE)
-  colspacing[1] <- 18 #force because :ColumnMetaData row is 18 spaces but only has one column
+  colspacing[1] <- 19 #force because :ColumnMetaData row is 18 spaces but only has one column
   
   subData<-cbind(rep(" ",nrow(subData)),data.frame(subData))
   names(subData)[1]<-" "

@@ -27,12 +27,16 @@ def generate_hydrographs(config_file, member_directory, use_forecast):
     print "generating probablistic data"
     cmd = [config_file.rscript_path,
           os.path.join(config_file.r_script_directory, config_file.r_script_diagnostics_resin),
-          os.path.join(member_directory,"scripts"), config_file.model_directory, use_forecast]
+          config_file.r_script_directory, 
+          os.path.join(member_directory,config_file.model_directory), 
+          use_forecast]
     subprocess.call(cmd,shell=True)
     
     cmd = [config_file.rscript_path,
           os.path.join(config_file.r_script_directory, config_file.r_script_diagnostics_spl),
-          os.path.join(member_directory,"scripts"), config_file.model_directory, use_forecast]
+          config_file.r_script_directory, 
+          os.path.join(member_directory,config_file.model_directory), 
+          use_forecast]
     subprocess.call(cmd,shell=True)
     
 

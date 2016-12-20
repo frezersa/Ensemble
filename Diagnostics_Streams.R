@@ -14,10 +14,11 @@ if(length(new.packages)) install.packages(new.packages,repos='http://cran.us.r-p
 #Get arguments
 args <- commandArgs(TRUE)
 cat(paste("1 - ",script_directory <- args[1]),"\n") #working directory
-# script_directory <- "Q:/LW_Ens/A_MS/Repo/scripts"
+# script_directory <- "C:/WR/A_MS/Repo/scripts"
 
-cat(paste("1 - ",model_directory <- args[2]),"\n") #typically 'wpegr'
-# model_directory <- "wpegr"
+cat(paste("1 - ",model_directory <- args[2]),"\n") #need full path
+# model_directory <- "C:/WR/50B/Repo/wpegr"
+model_name <- basename(model_directory)
 
 cat(paste("3 - ",Forecast <- args[3]),"\n") #typically 'wpegr'
 # Forecast <- "False"
@@ -30,12 +31,12 @@ source("rlib/LWSlib.R")
 library(grid)
 
 #set directory paths
-forecast_directory <- file.path(dirname(script_directory),"forecast")
-output_directory <- file.path(dirname(script_directory),"diagnostic")
+forecast_directory <- file.path(dirname(model_directory),"forecast")
+output_directory <- file.path(dirname(model_directory),"diagnostic")
 if(Forecast == "True" || Forecast == "TRUE" || Forecast == TRUE){
-  hindcast_directory <- file.path(dirname(dirname(script_directory)),"Repo_hindcast")
+  hindcast_directory <- file.path(dirname(dirname(model_directory)),"Repo_hindcast")
 }else{
-  hindcast_directory <- dirname(script_directory)
+  hindcast_directory <- dirname(model_directory)
 }
 
 
@@ -106,7 +107,7 @@ inflowplots <- function(percentileframe,resin_hind,LakeName,m,avg=FALSE){
 
 
 #get hindcast
-file.resin_hindcast<-file.path(hindcast_directory,model_directory,"results", "spl.csv")
+file.resin_hindcast<-file.path(hindcast_directory,model_name,"results", "spl.csv")
 resin_hind <-ReadSplCsvWheader(file.resin_hindcast)
 
 #get number of reservoirs in results
@@ -143,7 +144,8 @@ if(Forecast == "True" || Forecast == "TRUE" || Forecast == TRUE){
 
 LakeNames<- resin_hind$stations
 
-
+#copy the reservoir inflow file
+#file.copy(file.resin_hindcast,file.path(output_directory,"spl.csv"))
 
 
 output<-data.frame()
@@ -167,12 +169,12 @@ suppressWarnings(multiplot(p1,p2,p3,p4,p5,p6,p7,p8,p9,cols=3))
 garbage<-dev.off()
 
 png(file.path(output_directory,"Streamflows_2.png"),res=150,width=2000,height=1300)
-suppressWarnings(multiplot(p10,p11,p12,cols=3))
+suppressWarnings(multiplot(p10,p11,p12,p13,p14,p15,p16,p17,p18,cols=3))
 garbage<-dev.off()
 
-# png(file.path(output_directory,"Streamflows_3.png"),res=150,width=2000,height=1300)
-# suppressWarnings(multiplot(p19,p20,p21,p22,p23,p24,p25,p26,p27,cols=3))
-# garbage<-dev.off()
+png(file.path(output_directory,"Streamflows_3.png"),res=150,width=2000,height=1300)
+suppressWarnings(multiplot(p19,p20,p21,p22,p23,p24,p25,p26,p27,cols=3))
+garbage<-dev.off()
 
 
 

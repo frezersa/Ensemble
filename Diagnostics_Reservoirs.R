@@ -14,13 +14,14 @@ if(length(new.packages)) install.packages(new.packages,repos='http://cran.us.r-p
 #Get arguments
 args <- commandArgs(TRUE)
 cat(paste("1 - ",script_directory <- args[1]),"\n") #working directory
-# script_directory <- "Q:/WR_Ens_dev/50B/Repo/scripts"
+# script_directory <- "C:/WR/A_MS/Repo/scripts"
 
-cat(paste("2 - ",model_directory <- args[2]),"\n") #typically 'wpegr'
-# model_directory <- "wpegr"
+cat(paste("1 - ",model_directory <- args[2]),"\n") #need full path
+# model_directory <- "C:/WR/50B/Repo/wpegr"
+model_name <- basename(model_directory)
 
-cat(paste("3 - ",Forecast <- args[3]),"\n") 
-# Forecast <- "True"
+cat(paste("3 - ",Forecast <- args[3]),"\n") #typically 'wpegr'
+# Forecast <- "False"
 
 
 #set working directory and load libraries
@@ -31,12 +32,12 @@ source("rlib/LWSlib.R")
 library(grid)
 
 #set directory paths
-forecast_directory <- file.path(dirname(script_directory),"forecast")
-output_directory <- file.path(dirname(script_directory),"diagnostic")
+forecast_directory <- file.path(dirname(model_directory),"forecast")
+output_directory <- file.path(dirname(model_directory),"diagnostic")
 if(Forecast == "True" || Forecast == "TRUE" || Forecast == TRUE){
-  hindcast_directory <- file.path(dirname(dirname(script_directory)),"Repo_hindcast")
+  hindcast_directory <- file.path(dirname(dirname(model_directory)),"Repo_hindcast")
 }else{
-  hindcast_directory <- dirname(script_directory)
+  hindcast_directory <- dirname(model_directory)
 }
 
 
@@ -47,7 +48,7 @@ if(Forecast == "True" || Forecast == "TRUE" || Forecast == TRUE){
 inflowplots <- function(percentileframe,resin_hind,LakeName,m,avg=FALSE){
   
   #if there is no forecast data
-  if(percentileframe == FALSE){
+  if(percentileframe[[1]] == FALSE){
     tdf<-merge(Obs=zoo(resin_hind$observed.table[,m],resin_hind$date.time),Est=zoo(resin_hind$estimated.table[,m],resin_hind$date.time))
   }else{ #else plot the forecast data also
     #create data frame for ggplot to work with
@@ -66,7 +67,7 @@ inflowplots <- function(percentileframe,resin_hind,LakeName,m,avg=FALSE){
   
   #create 7 day moving average
   if(avg){
-    if(percentileframe != FALSE){
+    if(percentileframe[[1]] != FALSE){
       tdf[tail(resin_hind$date.time[],7),3:7] <- tdf[tail(resin_hind$date.time[],7),2] #append observed so that average can be applied to forecast
     }
     tdf <- round(rollapply(tdf,FUN=mean,width=7,align="right"),1)
@@ -74,7 +75,7 @@ inflowplots <- function(percentileframe,resin_hind,LakeName,m,avg=FALSE){
   
   #plot
   #if there is no forecast data
-  if(percentileframe == FALSE){
+  if(percentileframe[[1]] == FALSE){
     p   <-  ggplot(data=fortify(tdf),aes(x=Index)) +
       geom_line(aes(y = Obs,col="black"),size=0.5) +
       geom_line(aes(y=Est,col="red"),size=0.5) +
@@ -136,8 +137,10 @@ inflowdata <- function(percentileframe,resin_hind,LakeName,m){
 
 
 #get hindcast
-file.resin_hindcast<-file.path(hindcast_directory,model_directory,"results", "resin.csv")
+file.resin_hindcast<-file.path(hindcast_directory,model_name,"results", "resin.csv")
 resin_hind <-ReadSplCsvWheader(file.resin_hindcast)
+
+
 
 #get number of reservoirs in results
 num_reservoirs <- length(resin_hind$stations)
@@ -204,15 +207,18 @@ png(file.path(output_directory,"Resinflows_1day_1.png"),res=resolution,width=Wid
 suppressWarnings(multiplot(p1,p2,p3,p4,cols=2))
 garbage<-dev.off()
 
-# png(file.path(output_directory,"Resinflows_1day_2.png"),res=resolution,width=Width,height=Height)
-# suppressWarnings(multiplot(p2,p7,p3,cols=2))
-# garbage<-dev.off()
+png(file.path(output_directory,"Resinflows_1day_2.png"),res=resolution,width=Width,height=Height)
+suppressWarnings(multiplot(p5,p6,p7,cols=2))
+garbage<-dev.off()
 
 png(file.path(output_directory,"LOWLS_1day.png"),res=resolution,width=Width/2,height=Height)
-suppressWarnings(multiplot(p1,p2,cols=1))
+suppressWarnings(multiplot(p1,p6,cols=1))
 garbage<-dev.off()
 
 #export csv
+#copy the reservoir inflow file
+#file.copy(file.resin_hindcast,file.path(output_directory,"resin.csv"))
+
 if(Forecast == "True" || Forecast == "TRUE" || Forecast == TRUE){write.csv(output,file.path(output_directory,"Prob_forecast_1day.csv"))}
 
 
@@ -238,12 +244,12 @@ png(file.path(output_directory,"Resinflows_7day_1.png"),res=resolution,width=Wid
 suppressWarnings(multiplot(p1,p2,p3,p4,cols=2))
 garbage<-dev.off()
 
-# png(file.path(output_directory,"Resinflows_7day_2.png"),res=resolution,width=Width,height=Height)
-# suppressWarnings(multiplot(p2,p7,p3,cols=2))
-# garbage<-dev.off()
+png(file.path(output_directory,"Resinflows_7day_2.png"),res=resolution,width=Width,height=Height)
+suppressWarnings(multiplot(p5,p6,p7,cols=2))
+garbage<-dev.off()
 
 png(file.path(output_directory,"LOWLS_7day.png"),res=resolution,width=Width/2,height=Height)
-suppressWarnings(multiplot(p1,p2,cols=1))
+suppressWarnings(multiplot(p1,p6,cols=1))
 garbage<-dev.off()
 
 

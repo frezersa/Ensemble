@@ -780,7 +780,7 @@ def query_ec_datamart_hindcast(config_file):
     """
     #First do CaPA data
     print "Getting Precipitation Data..."
-    hind_start_date = datetime.datetime.strptime(config_file.historical_start_date,"%Y/%m/%d")
+    hind_start_date = datetime.datetime.strptime(config_file.hindcast_start_date,"%Y/%m/%d")
     capafilename = hind_start_date.strftime("%Y%m%d_met.r2c")
     
     
@@ -799,7 +799,7 @@ def query_ec_datamart_hindcast(config_file):
       
     #Next do GEM Temperature Data
     print "Getting Temperature Data..."
-    hind_start_date = datetime.datetime.strptime(config_file.historical_start_date,"%Y/%m/%d")
+    hind_start_date = datetime.datetime.strptime(config_file.hindcast_start_date,"%Y/%m/%d")
     GEMTempsfilename = hind_start_date.strftime("%Y%m%d_tem.r2c")
     
     MetUpdate(config_file, 

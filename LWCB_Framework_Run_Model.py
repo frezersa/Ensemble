@@ -6,7 +6,7 @@ August 30, 2016
 Runs the main operations for the WATFLOOD framework. Requires two arguments to be passed in when calling
 the script.
 -c 'full path to the configuration file'
--m 'Type of model run: Spinup,DefaultHindcast,HindcastAdjust,Forecast,AcceptAndCopy'
+-m 'Type of model run: UpdateConfig,Spinup,DefaultHindcast,Forecast,AcceptAndCopy'
 
 Functions are defined in the custom modules located in same folder (FrameworkLibrary.py,
 met_process.py, post_process.py, pre_process.py, pyEnSim_basics.py)
@@ -34,7 +34,7 @@ import FrameworkLibrary
 import post_process
 
 
-def main():
+def Run_Framework():
     #get arguments
     class args(object):
       pass
@@ -79,5 +79,6 @@ def main():
         print "\noptions selected are not correct. please review configuration settings.\n"
 
 
+# see http://stackoverflow.com/questions/419163/what-does-if-name-main-do for description of next line
 if __name__ == "__main__":
-    main()
+    Run_Framework()

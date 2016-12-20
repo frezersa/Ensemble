@@ -30,7 +30,7 @@ import pre_process
 def UpdateConfig(config_file):
     """
     Script to make automatic changes to 'configuration.txt'
-    Namely, changes the historical_end_date and the forecast_date to yesterday and today, respectively
+    Namely, changes the hindcast_end_date and the forecast_date to yesterday and today, respectively
     
     Args:
         config_file: see class ConfigParse
@@ -62,7 +62,7 @@ def UpdateConfig(config_file):
     yesterday_date = today_date - datetime.timedelta(1)
         
     #replace dates in text file
-    replace(config_file.configuration_file,r'historical_end_date:.+','historical_end_date:' + yesterday_date.strftime('%Y/%m/%d'))
+    replace(config_file.configuration_file,r'hindcast_end_date:.+','hindcast_end_date:' + yesterday_date.strftime('%Y/%m/%d'))
     replace(config_file.configuration_file,r'forecast_date:.+','forecast_date:' + today_date.strftime('%Y/%m/%d'))    
     
 
@@ -146,14 +146,14 @@ def hindcast(config_file):
     copy_resume(config_file, "Repo_spinup")
     
     query_lwcb_db(config_file,
-                  start_date = config_file.historical_start_date,
-                  end_date = config_file.historical_end_date)
+                  start_date = config_file.hindcast_start_date,
+                  end_date = config_file.hindcast_end_date)
                   
     met_process.query_ec_datamart_hindcast(config_file)
     
     #generate the event file
     generate_hindcast_event_file(config_file,
-                                 start_date = config_file.historical_start_date,
+                                 start_date = config_file.hindcast_start_date,
                                  resume_toggle = True, 
                                  tbc_toggle = True)
     
@@ -196,21 +196,21 @@ def forecast(config_file):
     # print "\n===============Running Forecast===================\n"
     members = filter(None,config_file.ensemble_members.split(",")) #find out which hydr. ensemble members to run
         
-    # Prepare Directories
-    # clean_up(config_file, met = True,tem = True)
-    # copy_resume(config_file,"Repo_hindcast")
-    # generate_forecast_files(config_file)
-    # met_process.query_meteorological_forecast(config_file)
-    # update_model_folders(config_file)
+    #Prepare Directories
+    clean_up(config_file, met = True,tem = True)
+    copy_resume(config_file,"Repo_hindcast")
+    generate_forecast_files(config_file)
+    met_process.query_meteorological_forecast(config_file)
+    update_model_folders(config_file)
     
-    # for i in members:
-      # setup_members(config_file,i)
-      # member_path = os.path.join(os.path.dirname(os.path.dirname(config_file.repository_directory)), i)
-      # copy_resume(config_file, "Repo_hindcast", member_path=member_path)
+    for i in members:
+      setup_members(config_file,i)
+      member_path = os.path.join(os.path.dirname(os.path.dirname(config_file.repository_directory)), i)
+      copy_resume(config_file, "Repo_hindcast", member_path=member_path)
       
       
-    # # execute watflood (this calls parallel processing for spl execution
-    # generate_run_event_files_forecast(config_file,members)
+    # execute watflood (this calls parallel processing for spl execution
+    generate_run_event_files_forecast(config_file,members)
 
     post_process.generate_meteorlogical_graphs(config_file) #only for MotherShip
     
@@ -434,7 +434,7 @@ def generate_spinup_generic_files(config_file, start_date):
     # generate swe.r2c, write to snow1 directory
     pre_process.GenericTemplateWriter(config_file, template_name = "TEMPLATE_swe.r2c", start_date = start_date)
        
-    # generate psm.pt2, write to moist directory
+    # generate gsm.r2c, write to moist directory
     pre_process.GenericTemplateWriter(config_file, template_name = "TEMPLATE_gsm.r2c", start_date = start_date)
     
     
@@ -805,9 +805,10 @@ def CopyModEvent(mothership_dir, member_dir, keywords = "NA"):
         table = [row.strip().split() for row in Infile]
 
         for i, line in enumerate(table):
-            for flag in keywords:
-               if flag in line[0] and mothership_path not in line[1]:
-                  line[1] = os.path.join(mothership_path,line[1])
+            if len(line) > 1:
+                for flag in keywords:
+                    if flag in line[0] and mothership_path not in line[1]:
+                        line[1] = os.path.join(mothership_path,line[1])
                   
         file = open(file_name,'w')
         #write file
@@ -1381,8 +1382,8 @@ def copy_resume(config_file, source_dir, member_path = "NA"):
       make_path = os.path.join(member_path, source_dir, config_file.model_directory, i)
       make_items.append(make_path)
         
-    # delete \wpegr\level\20140101_ill.pt2 in dest directory if exists
-    tmp = config_file.historical_start_date.split("/")
+    # delete \wpegr\level\YYYY0101_ill.pt2 in dest directory if exists
+    tmp = config_file.hindcast_start_date.split("/")
     ill_file = "%s%s%s" %(tmp[0],tmp[1],tmp[2]) + "_ill.pt2"
     ill_path = os.path.join(source_dir, config_file.model_directory, "level", ill_file)
     del_items.append(ill_path)
@@ -1438,8 +1439,6 @@ class ConfigParse:
         self.grib_GEMTemps_repo = parameter_settings["grib_GEMTemps_repo"]
         self.grib_forecast_repo = parameter_settings["grib_forecast_repo"]
          
-        #= hec dss db
-        self.hec_writer_script = parameter_settings["hec_writer_script"]
          
         #= executables
         self.data_distribution_temperature = parameter_settings["data_distribution_temperature"]
@@ -1448,7 +1447,6 @@ class ConfigParse:
         self.data_distribution_moist = parameter_settings["data_distribution_moist"]
         self.data_state_variable_streamflow = parameter_settings["data_state_variable_streamflow"]
         self.watflood_executable = parameter_settings["watflood_executable"]
-        self.hecdss_vue_path = parameter_settings["hecdss_vue_executable"]
 
         # location of r scripts
         self.r_script_directory = os.path.join(self.repository_directory,"scripts")
@@ -1473,8 +1471,8 @@ class ConfigParse:
         self.spinup_end_date = parameter_settings["spinup_end_date"]
 
         # historical dates
-        self.historical_start_date = parameter_settings["historical_start_date"]
-        self.historical_end_date = parameter_settings["historical_end_date"]
+        self.hindcast_start_date = parameter_settings["hindcast_start_date"]
+        self.hindcast_end_date = parameter_settings["hindcast_end_date"]
 
         # forecast start date
         self.forecast_date = parameter_settings["forecast_date"]
@@ -1497,12 +1495,8 @@ class ConfigParse:
 
         # pull data
         # start hout for data pull. either 00 or 12. default is 00.
-        self.capa_start_hour = parameter_settings["capa_start_hour"]
         self.forecast_start_hour = parameter_settings["forecast_start_hour"] 
 
-        # location of adjustment scripts
-        self.precip_adjust = parameter_settings["precip_adjust"]
-        self.temp_adjust = parameter_settings["temp_adjust"]
         
         
 
