@@ -17,11 +17,11 @@ cat(paste("1 - ",script_directory <- args[1]),"\n") #working directory
 # script_directory <- "C:/WR/A_MS/Repo/scripts"
 
 cat(paste("1 - ",model_directory <- args[2]),"\n") #need full path
-# model_directory <- "C:/WR/50B/Repo/wpegr"
+# model_directory <- "C:/WR/A_MS/Repo/wpegr"
 model_name <- basename(model_directory)
 
 cat(paste("3 - ",Forecast <- args[3]),"\n") #typically 'wpegr'
-# Forecast <- "False"
+# Forecast <- "True"
 
 #set working directory and load libraries
 setwd(script_directory)

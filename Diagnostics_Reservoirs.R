@@ -17,11 +17,11 @@ cat(paste("1 - ",script_directory <- args[1]),"\n") #working directory
 # script_directory <- "C:/WR/A_MS/Repo/scripts"
 
 cat(paste("1 - ",model_directory <- args[2]),"\n") #need full path
-# model_directory <- "C:/WR/50B/Repo/wpegr"
+# model_directory <- "C:/WR/A_MS/Repo/wpegr"
 model_name <- basename(model_directory)
 
 cat(paste("3 - ",Forecast <- args[3]),"\n") #typically 'wpegr'
-# Forecast <- "False"
+# Forecast <- "TRUE"
 
 
 #set working directory and load libraries
@@ -107,7 +107,7 @@ inflowplots <- function(percentileframe,resin_hind,LakeName,m,avg=FALSE){
 
 
 inflowdata <- function(percentileframe,resin_hind,LakeName,m){
-  Lookback <- 14
+  Lookback <- min(nrow(resin_hind$observed.table),14)
   #create timeseries and apply 7-day averaging to minimize wind effects (end-averaging)
   tdf<-merge(Obs=zoo(resin_hind$observed.table[,m],resin_hind$date.time),Est=zoo(resin_hind$estimated.table[,m],resin_hind$date.time))
   
@@ -225,34 +225,34 @@ if(Forecast == "True" || Forecast == "TRUE" || Forecast == TRUE){write.csv(outpu
 
 
 
-
 #now do for 7 day average
-output<-data.frame()
-#loop to plot
-for(m in 1:num_reservoirs){
-  if(Forecast == "True" || Forecast == "TRUE" || Forecast == TRUE){
-    assign(paste0("p",m),inflowplots(percentileframe=MasterPerc[[m]],resin_hind=resin_hind,LakeName=LakeNames[m],m=m,avg=TRUE))
-  }else{
-    assign(paste0("p",m),inflowplots(percentileframe = FALSE,resin_hind=resin_hind,LakeName=LakeNames[m],m=m,avg=TRUE))
+if(nrow(resin_hind$observed.table)>7){
+  output<-data.frame()
+  #loop to plot
+  for(m in 1:num_reservoirs){
+    if(Forecast == "True" || Forecast == "TRUE" || Forecast == TRUE){
+      assign(paste0("p",m),inflowplots(percentileframe=MasterPerc[[m]],resin_hind=resin_hind,LakeName=LakeNames[m],m=m,avg=TRUE))
+    }else{
+      assign(paste0("p",m),inflowplots(percentileframe = FALSE,resin_hind=resin_hind,LakeName=LakeNames[m],m=m,avg=TRUE))
+    }
+  
   }
-
+  
+  
+  #Export plots
+  png(file.path(output_directory,"Resinflows_7day_1.png"),res=resolution,width=Width,height=Height)
+  suppressWarnings(multiplot(p1,p2,p3,p4,cols=2))
+  garbage<-dev.off()
+  
+  png(file.path(output_directory,"Resinflows_7day_2.png"),res=resolution,width=Width,height=Height)
+  suppressWarnings(multiplot(p5,p6,p7,cols=2))
+  garbage<-dev.off()
+  
+  png(file.path(output_directory,"LOWLS_7day.png"),res=resolution,width=Width/2,height=Height)
+  suppressWarnings(multiplot(p1,p6,cols=1))
+  garbage<-dev.off()
 }
-
-
-#Export plots
-png(file.path(output_directory,"Resinflows_7day_1.png"),res=resolution,width=Width,height=Height)
-suppressWarnings(multiplot(p1,p2,p3,p4,cols=2))
-garbage<-dev.off()
-
-png(file.path(output_directory,"Resinflows_7day_2.png"),res=resolution,width=Width,height=Height)
-suppressWarnings(multiplot(p5,p6,p7,cols=2))
-garbage<-dev.off()
-
-png(file.path(output_directory,"LOWLS_7day.png"),res=resolution,width=Width/2,height=Height)
-suppressWarnings(multiplot(p1,p6,cols=1))
-garbage<-dev.off()
-
-
-
-
+  
+  
+  
 
